@@ -1,5 +1,6 @@
 use cosmwasm_std::{
-    Addr, Api, BankMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Storage, Uint128,
+    to_binary, Addr, Api, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError,
+    StdResult, Storage, Uint128,
 };
 
 use std::collections::HashSet;
@@ -9,7 +10,7 @@ use cw1155::Cw1155ExecuteMsg;
 use cw20::Cw20ExecuteMsg;
 use cw721::Cw721ExecuteMsg;
 
-use p2p_trading_export::msg::{into_cosmos_msg};
+use p2p_trading_export::msg::into_cosmos_msg;
 use p2p_trading_export::state::{
     AdditionalTradeInfo, AssetInfo, Comment, CounterTradeInfo, TradeInfo, TradeState,
 };
@@ -18,7 +19,7 @@ use crate::error::ContractError;
 use crate::messages::set_comment;
 use crate::state::{
     add_cw1155_coin, add_cw20_coin, add_cw721_coin, add_funds, is_trader, load_counter_trade,
-    CONTRACT_INFO, COUNTER_TRADE_INFO, TRADE_INFO, LAST_USER_TRADE
+    CONTRACT_INFO, COUNTER_TRADE_INFO, LAST_USER_TRADE, TRADE_INFO,
 };
 
 /// Query the last trade created by the owner.
@@ -26,10 +27,12 @@ use crate::state::{
 /// Otherwise, specify the trade_id directly in the transaction
 pub fn get_last_trade_id_created(deps: Deps, by: String) -> Result<u64, ContractError> {
     let owner = deps.api.addr_validate(&by)?;
-    LAST_USER_TRADE.load(deps.storage, &owner).map_err(|_|ContractError::NotFoundInTradeInfo {})
+    LAST_USER_TRADE
+        .load(deps.storage, &owner)
+        .map_err(|_| ContractError::NotFoundInTradeInfo {})
 }
 
-/// Create a new trade and assign it a unique id. 
+/// Create a new trade and assign it a unique id.
 /// Saves this trade as the last one created by a user
 pub fn create_trade(
     deps: DepsMut,
@@ -249,6 +252,32 @@ pub fn withdraw_trade_assets_while_creating(
 
     // We withdraw the assets
     _try_withdraw_assets_unsafe(&mut trade_info, &assets)?;
+
+    // We make sure the asset was not the advertised asset
+    // For CW721, we match the whole assetInfo
+    // For Cw1155 we only match the address and the token_id
+    if let Some(preview) = trade_info.additional_info.trade_preview.clone() {
+        match preview {
+            AssetInfo::Cw721Coin(_) => {
+                if assets.iter().any(|r| r.1 == preview) {
+                    trade_info.additional_info.trade_preview = None;
+                }
+            }
+            AssetInfo::Cw1155Coin(preview_coin) => {
+                if assets.iter().any(|r| match r.1.clone() {
+                    AssetInfo::Cw1155Coin(coin) => {
+                        coin.address == preview_coin.address
+                            && coin.token_id == preview_coin.token_id
+                    }
+                    _ => false,
+                }) {
+                    trade_info.additional_info.trade_preview = None;
+                }
+            }
+            _ => {}
+        }
+    }
+
     TRADE_INFO.save(deps.storage, trade_id, &trade_info)?;
 
     // We send the assets back to the sender
@@ -365,13 +394,19 @@ pub fn _try_withdraw_assets_unsafe(
             AssetInfo::Coin(mut fund_info) => {
                 if let AssetInfo::Coin(fund) = asset {
                     // If everything is in order, we remove the coin from the trade
-                    fund_info.amount = fund_info.amount.checked_sub(fund.amount).map_err(ContractError::Overflow)?;
+                    fund_info.amount = fund_info
+                        .amount
+                        .checked_sub(fund.amount)
+                        .map_err(ContractError::Overflow)?;
                     trade_info.associated_assets[position] = AssetInfo::Coin(fund_info);
                 }
             }
             AssetInfo::Cw20Coin(mut token_info) => {
                 if let AssetInfo::Cw20Coin(token) = asset {
-                    token_info.amount = token_info.amount.checked_sub(token.amount).map_err(ContractError::Overflow)?;
+                    token_info.amount = token_info
+                        .amount
+                        .checked_sub(token.amount)
+                        .map_err(ContractError::Overflow)?;
                     trade_info.associated_assets[position] = AssetInfo::Cw20Coin(token_info);
                 }
             }
@@ -383,7 +418,10 @@ pub fn _try_withdraw_assets_unsafe(
             }
             AssetInfo::Cw1155Coin(mut cw1155_info) => {
                 if let AssetInfo::Cw1155Coin(cw1155) = asset {
-                    cw1155_info.value = cw1155_info.value.checked_sub(cw1155.value).map_err(ContractError::Overflow)?;
+                    cw1155_info.value = cw1155_info
+                        .value
+                        .checked_sub(cw1155.value)
+                        .map_err(ContractError::Overflow)?;
                     trade_info.associated_assets[position] = AssetInfo::Cw1155Coin(cw1155_info);
                 }
             }
@@ -601,6 +639,80 @@ pub fn remove_nfts_wanted(
         .add_attribute("name", "nfts_wanted")
         .add_attribute("operation_type", "remove")
         .add_attribute("value", nfts_wanted.join(","))
+        .add_attribute("trade_id", trade_id.to_string())
+        .add_attribute("trader", info.sender))
+}
+
+/// Add wanted nfts (only informational) to a trade
+pub fn add_tokens_wanted(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    trade_id: Option<u64>,
+    tokens_wanted: Vec<AssetInfo>,
+) -> Result<Response, ContractError> {
+    // We verify the trade can be modified
+    let (trade_id, mut trade_info) =
+        prepare_trade_modification(deps.as_ref(), info.sender.clone(), trade_id)?;
+
+    // We validate the tokens_wanted structure
+    for token in tokens_wanted.clone() {
+        match token {
+            AssetInfo::Coin(_) | AssetInfo::Cw20Coin(_) => Ok(()),
+            _ => Err(ContractError::WrongTokenType {}),
+        }?
+    }
+
+    // We modify the nfts wanted
+    let hash_set: HashSet<Binary> = HashSet::from_iter(
+        tokens_wanted
+            .iter()
+            .map(to_binary)
+            .collect::<Result<Vec<Binary>, StdError>>()?,
+    );
+
+    trade_info.additional_info.tokens_wanted = trade_info
+        .additional_info
+        .tokens_wanted
+        .union(&hash_set)
+        .cloned()
+        .collect();
+
+    TRADE_INFO.save(deps.storage, trade_id, &trade_info)?;
+
+    Ok(Response::new()
+        .add_attribute("action", "modify_parameter")
+        .add_attribute("name", "tokens_wanted")
+        .add_attribute("operation_type", "add")
+        .add_attribute("trade_id", trade_id.to_string())
+        .add_attribute("trader", info.sender))
+}
+
+/// Remove wanted nfts (only informational) from a trade
+pub fn remove_tokens_wanted(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    trade_id: u64,
+    tokens_wanted: Vec<AssetInfo>,
+) -> Result<Response, ContractError> {
+    // We verify the trade can be modified
+    let mut trade_info = can_modify_trade(deps.storage, info.sender.clone(), trade_id)?;
+    // We modify the whitelist
+    let parse_nfts_wanted = tokens_wanted
+        .iter()
+        .map(to_binary)
+        .collect::<Result<Vec<Binary>, StdError>>()?;
+
+    for token in &parse_nfts_wanted {
+        trade_info.additional_info.tokens_wanted.remove(token);
+    }
+    TRADE_INFO.save(deps.storage, trade_id, &trade_info)?;
+
+    Ok(Response::new()
+        .add_attribute("action", "modify_parameter")
+        .add_attribute("name", "tokens_wanted")
+        .add_attribute("operation_type", "remove")
         .add_attribute("trade_id", trade_id.to_string())
         .add_attribute("trader", info.sender))
 }

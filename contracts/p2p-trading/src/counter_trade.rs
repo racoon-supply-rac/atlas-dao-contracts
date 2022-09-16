@@ -6,7 +6,7 @@ use crate::error::ContractError;
 use crate::messages::set_comment;
 use crate::state::{
     add_cw1155_coin, add_cw20_coin, add_cw721_coin, add_funds, can_suggest_counter_trade,
-    is_counter_trader, load_trade, COUNTER_TRADE_INFO, TRADE_INFO, LAST_USER_COUNTER_TRADE
+    is_counter_trader, load_trade, COUNTER_TRADE_INFO, LAST_USER_COUNTER_TRADE, TRADE_INFO,
 };
 use crate::trade::{
     _are_assets_in_trade, _create_receive_asset_messages, _create_withdraw_messages_unsafe,
@@ -22,9 +22,9 @@ pub fn get_last_counter_id_created(
     trade_id: u64,
 ) -> Result<u64, ContractError> {
     let owner = deps.api.addr_validate(&by)?;
-    LAST_USER_COUNTER_TRADE.load(deps.storage, (&owner, trade_id)).map_err(|_|ContractError::NotFoundInCounterTradeInfo {})
-
-
+    LAST_USER_COUNTER_TRADE
+        .load(deps.storage, (&owner, trade_id))
+        .map_err(|_| ContractError::NotFoundInCounterTradeInfo {})
 }
 
 /// Create a new counter_trade and assign it a unique id for the specified `trade_id`
@@ -108,7 +108,7 @@ pub fn prepare_counter_modification(
     trader: Addr,
     trade_id: u64,
     counter_id: Option<u64>,
-) -> Result<u64, ContractError> {
+) -> Result<(u64, TradeInfo), ContractError> {
     let counter_id = counter_id_or_last(deps, trader.clone(), trade_id, counter_id)?;
 
     let counter_info = is_counter_trader(deps.storage, &trader, trade_id, counter_id)?;
@@ -118,7 +118,7 @@ pub fn prepare_counter_modification(
             state: counter_info.state,
         });
     }
-    Ok(counter_id)
+    Ok((counter_id, counter_info))
 }
 
 pub fn add_asset_to_counter_trade(
@@ -129,7 +129,7 @@ pub fn add_asset_to_counter_trade(
     counter_id: Option<u64>,
     asset: AssetInfo,
 ) -> Result<Response, ContractError> {
-    let counter_id =
+    let (counter_id, _) =
         prepare_counter_modification(deps.as_ref(), info.sender.clone(), trade_id, counter_id)?;
 
     match asset.clone() {
@@ -182,6 +182,33 @@ pub fn withdraw_counter_trade_assets_while_creating(
     _are_assets_in_trade(&counter_info, &assets)?;
 
     _try_withdraw_assets_unsafe(&mut counter_info, &assets)?;
+
+    // We make sure the asset was not the advertised asset
+    // For CW721, we match the whole assetInfo
+    // For Cw1155 we only match the address and the token_id
+    if let Some(preview) = counter_info.additional_info.trade_preview.clone() {
+        match preview {
+            AssetInfo::Cw721Coin(_) => {
+                if assets.iter().any(|r| r.1 == preview) {
+                    counter_info.additional_info.trade_preview = None;
+                }
+            }
+            AssetInfo::Cw1155Coin(preview_coin) => {
+                if assets.iter().any(|r| match r.1.clone() {
+                    AssetInfo::Cw1155Coin(coin) => {
+                        coin.address == preview_coin.address
+                            && coin.token_id == preview_coin.token_id
+                    }
+                    _ => false,
+                }) {
+                    counter_info.additional_info.trade_preview = None;
+                }
+            }
+            _ => {}
+        }
+    }
+
+
     COUNTER_TRADE_INFO.save(deps.storage, (trade_id, counter_id), &counter_info)?;
 
     let res = _create_withdraw_messages_unsafe(

@@ -17,7 +17,6 @@ pub const LAST_USER_TRADE: Map<&Addr, u64> = Map::new("last_user_trade");
 
 pub const LAST_USER_COUNTER_TRADE: Map<(&Addr, u64), u64> = Map::new("last_user_counter_trade");
 
-
 pub fn add_funds(
     fund: Coin,
     info_funds: Vec<Coin>,

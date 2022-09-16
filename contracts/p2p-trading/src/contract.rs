@@ -1,9 +1,7 @@
 #[cfg(not(feature = "library"))]
-use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
+    entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
 };
-
 use cw2::set_contract_version;
 
 use crate::error::ContractError;
@@ -12,7 +10,7 @@ use crate::state::{
     is_fee_contract, is_owner, load_counter_trade, load_trade, CONTRACT_INFO, COUNTER_TRADE_INFO,
     TRADE_INFO,
 };
-use p2p_trading_export::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, AddAssetAction};
+use p2p_trading_export::msg::{AddAssetAction, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use p2p_trading_export::state::{AssetInfo, ContractInfo, TradeState};
 
 use crate::counter_trade::{
@@ -20,15 +18,16 @@ use crate::counter_trade::{
     withdraw_all_from_counter, withdraw_counter_trade_assets_while_creating,
 };
 use crate::trade::{
-    accept_trade, add_asset_to_trade, add_nfts_wanted, add_whitelisted_users, cancel_trade,
-    check_and_create_withdraw_messages, confirm_trade, create_trade, refuse_counter_trade,
-    remove_nfts_wanted, remove_whitelisted_users, withdraw_all_from_trade,
-    withdraw_trade_assets_while_creating,
+    accept_trade, add_asset_to_trade, add_nfts_wanted, add_tokens_wanted, add_whitelisted_users,
+    cancel_trade, check_and_create_withdraw_messages, confirm_trade, create_trade,
+    refuse_counter_trade, remove_nfts_wanted, remove_tokens_wanted, remove_whitelisted_users,
+    withdraw_all_from_trade, withdraw_trade_assets_while_creating,
 };
 
-use crate::messages::{review_counter_trade, set_comment};
+use crate::messages::{review_counter_trade, set_comment, set_trade_preview};
 use crate::query::{
-    query_all_counter_trades, query_all_trades, query_contract_info, query_counter_trades,
+    query_all_counter_trades, query_all_trades, query_contract_info, query_counter_trade,
+    query_counter_trades, query_trade,
 };
 
 const CONTRACT_NAME: &str = "illiquidly.io:p2p-trading";
@@ -76,16 +75,7 @@ pub fn execute(
             comment,
         } => create_trade(deps, env, info, whitelisted_users, comment),
 
-        ExecuteMsg::AddAsset {
-            action,
-            asset,
-        } => add_asset(
-            deps,
-            env,
-            info,
-            action,
-            asset,
-        ),
+        ExecuteMsg::AddAsset { action, asset } => add_asset(deps, env, info, action, asset),
         ExecuteMsg::RemoveAssets {
             trade_id,
             counter_id,
@@ -118,6 +108,20 @@ pub fn execute(
             trade_id,
             nfts_wanted,
         } => remove_nfts_wanted(deps, env, info, trade_id, nfts_wanted),
+
+        ExecuteMsg::AddTokensWanted {
+            trade_id,
+            tokens_wanted,
+        } => add_tokens_wanted(deps, env, info, trade_id, tokens_wanted),
+
+        ExecuteMsg::RemoveTokensWanted {
+            trade_id,
+            tokens_wanted,
+        } => remove_tokens_wanted(deps, env, info, trade_id, tokens_wanted),
+
+        ExecuteMsg::SetTradePreview { action, asset } => {
+            set_trade_preview(deps, env, info, action, asset)
+        }
 
         ExecuteMsg::SetComment {
             trade_id,
@@ -196,14 +200,14 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::ContractInfo {} => to_binary(&query_contract_info(deps)?),
         QueryMsg::TradeInfo { trade_id } => to_binary(
-            &load_trade(deps.storage, trade_id)
+            &query_trade(deps.storage, trade_id)
                 .map_err(|e| StdError::generic_err(e.to_string()))?,
         ),
         QueryMsg::CounterTradeInfo {
             trade_id,
             counter_id,
         } => to_binary(
-            &load_counter_trade(deps.storage, trade_id, counter_id)
+            &query_counter_trade(deps.storage, trade_id, counter_id)
                 .map_err(|e| StdError::generic_err(e.to_string()))?,
         ),
         QueryMsg::GetAllCounterTrades {
@@ -289,23 +293,18 @@ pub fn add_asset(
     asset: AssetInfo,
 ) -> Result<Response, ContractError> {
     // We implement 4 different cases here.
-    match action{
-        AddAssetAction::ToLastTrade{}=>{
-            add_asset_to_trade(deps, env, info, None, asset)
-        },
-        AddAssetAction::ToLastCounterTrade{trade_id}=>
-            add_asset_to_counter_trade(
-            deps,
-            env,
-            info,
+    match action {
+        AddAssetAction::ToLastTrade {} => add_asset_to_trade(deps, env, info, None, asset),
+        AddAssetAction::ToLastCounterTrade { trade_id } => {
+            add_asset_to_counter_trade(deps, env, info, trade_id, None, asset)
+        }
+        AddAssetAction::ToTrade { trade_id } => {
+            add_asset_to_trade(deps, env, info, Some(trade_id), asset)
+        }
+        AddAssetAction::ToCounterTrade {
             trade_id,
-            None,
-            asset,
-        ),
-        AddAssetAction::ToTrade{trade_id}=>
-            add_asset_to_trade(deps, env, info, Some(trade_id), asset),
-        AddAssetAction::ToCounterTrade{trade_id, counter_id}=>
-            add_asset_to_counter_trade(deps, env, info, trade_id, Some(counter_id), asset)
+            counter_id,
+        } => add_asset_to_counter_trade(deps, env, info, trade_id, Some(counter_id), asset),
     }
 }
 
@@ -394,7 +393,7 @@ pub mod tests {
     use cw20::Cw20ExecuteMsg;
     use cw721::Cw721ExecuteMsg;
     use p2p_trading_export::msg::into_cosmos_msg;
-    use p2p_trading_export::state::{AssetInfo, Cw1155Coin, Cw20Coin, Cw721Coin, TradeInfo};
+    use p2p_trading_export::state::{AssetInfo, Cw1155Coin, Cw20Coin, Cw721Coin};
 
     fn init_helper(deps: DepsMut) {
         let instantiate_msg = InstantiateMsg {
@@ -597,9 +596,7 @@ pub mod tests {
             env,
             info,
             ExecuteMsg::AddAsset {
-                action: AddAssetAction::ToTrade{
-                    trade_id
-                },
+                action: AddAssetAction::ToTrade { trade_id },
                 asset,
             },
         )
@@ -706,8 +703,10 @@ pub mod tests {
         use crate::query::{query_counter_trades, TradeResponse};
         use crate::trade::validate_addresses;
         use cosmwasm_std::{coin, Api, SubMsg};
-        use p2p_trading_export::msg::QueryFilters;
-        use p2p_trading_export::state::{AdditionalTradeInfo, Comment, CounterTradeInfo};
+        use p2p_trading_export::msg::{
+            AdditionalTradeInfoResponse, QueryFilters, TradeInfoResponse,
+        };
+        use p2p_trading_export::state::{Comment, CounterTradeInfo};
         use std::collections::HashSet;
         use std::iter::FromIterator;
 
@@ -754,9 +753,9 @@ pub mod tests {
                         TradeResponse {
                             trade_id: 1,
                             counter_id: None,
-                            trade_info: Some(TradeInfo {
+                            trade_info: Some(TradeInfoResponse {
                                 owner: deps.api.addr_validate("creator").unwrap(),
-                                additional_info: AdditionalTradeInfo {
+                                additional_info: AdditionalTradeInfoResponse {
                                     owner_comment: Some(Comment {
                                         comment: "Q".to_string(),
                                         time: mock_env().block.time,
@@ -772,9 +771,9 @@ pub mod tests {
                         TradeResponse {
                             trade_id: 0,
                             counter_id: None,
-                            trade_info: Some(TradeInfo {
+                            trade_info: Some(TradeInfoResponse {
                                 owner: deps.api.addr_validate("creator").unwrap(),
-                                additional_info: AdditionalTradeInfo {
+                                additional_info: AdditionalTradeInfoResponse {
                                     owner_comment: Some(Comment {
                                         comment: "Q".to_string(),
                                         time: mock_env().block.time,
@@ -890,9 +889,9 @@ pub mod tests {
                         TradeResponse {
                             trade_id: 1,
                             counter_id: None,
-                            trade_info: Some(TradeInfo {
+                            trade_info: Some(TradeInfoResponse {
                                 owner: deps.api.addr_validate("creator2").unwrap(),
-                                additional_info: AdditionalTradeInfo {
+                                additional_info: AdditionalTradeInfoResponse {
                                     owner_comment: Some(Comment {
                                         comment: "Q".to_string(),
                                         time: mock_env().block.time,
@@ -908,9 +907,9 @@ pub mod tests {
                         TradeResponse {
                             trade_id: 0,
                             counter_id: None,
-                            trade_info: Some(TradeInfo {
+                            trade_info: Some(TradeInfoResponse {
                                 owner: deps.api.addr_validate("creator").unwrap(),
-                                additional_info: AdditionalTradeInfo {
+                                additional_info: AdditionalTradeInfoResponse {
                                     owner_comment: Some(Comment {
                                         comment: "Q".to_string(),
                                         time: mock_env().block.time,
@@ -943,9 +942,9 @@ pub mod tests {
                     TradeResponse {
                         trade_id: 0,
                         counter_id: None,
-                        trade_info: Some(TradeInfo {
+                        trade_info: Some(TradeInfoResponse {
                             owner: deps.api.addr_validate("creator").unwrap(),
-                            additional_info: AdditionalTradeInfo {
+                            additional_info: AdditionalTradeInfoResponse {
                                 owner_comment: Some(Comment {
                                     comment: "Q".to_string(),
                                     time: mock_env().block.time,
@@ -977,9 +976,9 @@ pub mod tests {
                 vec![TradeResponse {
                     trade_id: 1,
                     counter_id: None,
-                    trade_info: Some(TradeInfo {
+                    trade_info: Some(TradeInfoResponse {
                         owner: deps.api.addr_validate("creator2").unwrap(),
-                        additional_info: AdditionalTradeInfo {
+                        additional_info: AdditionalTradeInfoResponse {
                             owner_comment: Some(Comment {
                                 comment: "Q".to_string(),
                                 time: mock_env().block.time
@@ -1010,10 +1009,10 @@ pub mod tests {
                     TradeResponse {
                         trade_id: 2,
                         counter_id: None,
-                        trade_info: Some(TradeInfo {
+                        trade_info: Some(TradeInfoResponse {
                             owner: deps.api.addr_validate("creator2").unwrap(),
                             state: TradeState::Published,
-                            additional_info: AdditionalTradeInfo {
+                            additional_info: AdditionalTradeInfoResponse {
                                 owner_comment: Some(Comment {
                                     comment: "Q".to_string(),
                                     time: mock_env().block.time
@@ -1027,9 +1026,9 @@ pub mod tests {
                     TradeResponse {
                         trade_id: 1,
                         counter_id: None,
-                        trade_info: Some(TradeInfo {
+                        trade_info: Some(TradeInfoResponse {
                             owner: deps.api.addr_validate("creator2").unwrap(),
-                            additional_info: AdditionalTradeInfo {
+                            additional_info: AdditionalTradeInfoResponse {
                                 owner_comment: Some(Comment {
                                     comment: "Q".to_string(),
                                     time: mock_env().block.time
@@ -1220,7 +1219,7 @@ pub mod tests {
                     TradeResponse {
                         trade_id: 0,
                         counter_id: None,
-                        trade_info: Some(TradeInfo {
+                        trade_info: Some(TradeInfoResponse {
                             owner: deps.api.addr_validate("creator").unwrap(),
                             state: TradeState::Created,
                             associated_assets: vec![
@@ -1233,7 +1232,7 @@ pub mod tests {
                                     address: "other_token".to_string(),
                                 }),
                             ],
-                            additional_info: AdditionalTradeInfo {
+                            additional_info: AdditionalTradeInfoResponse {
                                 owner_comment: Some(Comment {
                                     comment: "Q".to_string(),
                                     time: env.block.time,
@@ -1446,7 +1445,7 @@ pub mod tests {
                 env.clone(),
                 info,
                 ExecuteMsg::AddAsset {
-                    action: AddAssetAction::ToLastTrade{},
+                    action: AddAssetAction::ToLastTrade {},
                     asset: AssetInfo::Cw20Coin(Cw20Coin {
                         address: "cw20".to_string(),
                         amount: Uint128::from(100u64),
@@ -1461,7 +1460,7 @@ pub mod tests {
                 env,
                 info,
                 ExecuteMsg::AddAsset {
-                    action: AddAssetAction::ToLastTrade{},
+                    action: AddAssetAction::ToLastTrade {},
                     asset: AssetInfo::Coin(coin(97u128, "uluna")),
                 },
             )
@@ -1924,10 +1923,10 @@ pub mod tests {
                     TradeResponse {
                         trade_id: 0,
                         counter_id: None,
-                        trade_info: Some(TradeInfo {
+                        trade_info: Some(TradeInfoResponse {
                             owner: deps.api.addr_validate("creator").unwrap(),
                             state: TradeState::Published,
-                            additional_info: AdditionalTradeInfo {
+                            additional_info: AdditionalTradeInfoResponse {
                                 owner_comment: Some(Comment {
                                     comment: "Q".to_string(),
                                     time: mock_env().block.time,
@@ -2052,7 +2051,7 @@ pub mod tests {
                     TradeResponse {
                         trade_id: 0,
                         counter_id: None,
-                        trade_info: Some(TradeInfo {
+                        trade_info: Some(TradeInfoResponse {
                             owner: deps.api.addr_validate("creator").unwrap(),
                             state: TradeState::Accepted,
                             last_counter_id: Some(0),
@@ -2060,7 +2059,7 @@ pub mod tests {
                                 trade_id: 0,
                                 counter_id: 0,
                             }),
-                            additional_info: AdditionalTradeInfo {
+                            additional_info: AdditionalTradeInfoResponse {
                                 owner_comment: Some(Comment {
                                     comment: "Q".to_string(),
                                     time: mock_env().block.time,
@@ -2083,10 +2082,10 @@ pub mod tests {
                     TradeResponse {
                         counter_id: Some(0),
                         trade_id: 0,
-                        trade_info: Some(TradeInfo {
+                        trade_info: Some(TradeInfoResponse {
                             owner: deps.api.addr_validate("counterer").unwrap(),
                             state: TradeState::Accepted,
-                            additional_info: AdditionalTradeInfo {
+                            additional_info: AdditionalTradeInfoResponse {
                                 owner_comment: Some(Comment {
                                     comment: "Q".to_string(),
                                     time: mock_env().block.time,
@@ -2116,10 +2115,10 @@ pub mod tests {
                     TradeResponse {
                         counter_id: Some(0),
                         trade_id: 0,
-                        trade_info: Some(TradeInfo {
+                        trade_info: Some(TradeInfoResponse {
                             owner: deps.api.addr_validate("counterer").unwrap(),
                             state: TradeState::Accepted,
-                            additional_info: AdditionalTradeInfo {
+                            additional_info: AdditionalTradeInfoResponse {
                                 owner_comment: Some(Comment {
                                     comment: "Q".to_string(),
                                     time: mock_env().block.time,
@@ -2196,11 +2195,11 @@ pub mod tests {
                     TradeResponse {
                         counter_id: Some(0),
                         trade_id: 0,
-                        trade_info: Some(TradeInfo {
+                        trade_info: Some(TradeInfoResponse {
                             owner: deps.api.addr_validate("counterer").unwrap(),
                             state: TradeState::Accepted,
 
-                            additional_info: AdditionalTradeInfo {
+                            additional_info: AdditionalTradeInfoResponse {
                                 owner_comment: Some(Comment {
                                     comment: "Q".to_string(),
                                     time: mock_env().block.time,
@@ -2236,10 +2235,10 @@ pub mod tests {
                         TradeResponse {
                             counter_id: Some(2),
                             trade_id: 0,
-                            trade_info: Some(TradeInfo {
+                            trade_info: Some(TradeInfoResponse {
                                 owner: deps.api.addr_validate("counterer").unwrap(),
                                 state: TradeState::Refused,
-                                additional_info: AdditionalTradeInfo {
+                                additional_info: AdditionalTradeInfoResponse {
                                     owner_comment: Some(Comment {
                                         comment: "Q".to_string(),
                                         time: mock_env().block.time,
@@ -2255,10 +2254,10 @@ pub mod tests {
                         TradeResponse {
                             counter_id: Some(1),
                             trade_id: 0,
-                            trade_info: Some(TradeInfo {
+                            trade_info: Some(TradeInfoResponse {
                                 owner: deps.api.addr_validate("counterer").unwrap(),
                                 state: TradeState::Refused,
-                                additional_info: AdditionalTradeInfo {
+                                additional_info: AdditionalTradeInfoResponse {
                                     owner_comment: Some(Comment {
                                         comment: "Q".to_string(),
                                         time: mock_env().block.time,
@@ -2297,10 +2296,10 @@ pub mod tests {
                     TradeResponse {
                         counter_id: Some(0),
                         trade_id: 0,
-                        trade_info: Some(TradeInfo {
+                        trade_info: Some(TradeInfoResponse {
                             owner: deps.api.addr_validate("counterer").unwrap(),
                             state: TradeState::Accepted,
-                            additional_info: AdditionalTradeInfo {
+                            additional_info: AdditionalTradeInfoResponse {
                                 owner_comment: Some(Comment {
                                     comment: "Q".to_string(),
                                     time: mock_env().block.time,
@@ -2357,10 +2356,10 @@ pub mod tests {
                     TradeResponse {
                         counter_id: Some(0),
                         trade_id: 0,
-                        trade_info: Some(TradeInfo {
+                        trade_info: Some(TradeInfoResponse {
                             owner: deps.api.addr_validate("counterer").unwrap(),
                             state: TradeState::Cancelled,
-                            additional_info: AdditionalTradeInfo {
+                            additional_info: AdditionalTradeInfoResponse {
                                 owner_comment: Some(Comment {
                                     comment: "Q".to_string(),
                                     time: mock_env().block.time,
@@ -2427,10 +2426,10 @@ pub mod tests {
                 vec![TradeResponse {
                     trade_id: 0,
                     counter_id: Some(0),
-                    trade_info: Some(TradeInfo {
+                    trade_info: Some(TradeInfoResponse {
                         owner: deps.api.addr_validate("counterer2").unwrap(),
                         state: TradeState::Created,
-                        additional_info: AdditionalTradeInfo {
+                        additional_info: AdditionalTradeInfoResponse {
                             owner_comment: Some(Comment {
                                 comment: "Q".to_string(),
                                 time: mock_env().block.time
@@ -2480,10 +2479,10 @@ pub mod tests {
                     TradeResponse {
                         trade_id: 4,
                         counter_id: Some(1),
-                        trade_info: Some(TradeInfo {
+                        trade_info: Some(TradeInfoResponse {
                             owner: deps.api.addr_validate("counterer2").unwrap(),
                             state: TradeState::Created,
-                            additional_info: AdditionalTradeInfo {
+                            additional_info: AdditionalTradeInfoResponse {
                                 owner_comment: Some(Comment {
                                     comment: "Q".to_string(),
                                     time: mock_env().block.time
@@ -2497,9 +2496,9 @@ pub mod tests {
                     TradeResponse {
                         trade_id: 4,
                         counter_id: Some(0),
-                        trade_info: Some(TradeInfo {
+                        trade_info: Some(TradeInfoResponse {
                             owner: deps.api.addr_validate("counterer").unwrap(),
-                            additional_info: AdditionalTradeInfo {
+                            additional_info: AdditionalTradeInfoResponse {
                                 owner_comment: Some(Comment {
                                     comment: "Q".to_string(),
                                     time: mock_env().block.time
@@ -3019,8 +3018,9 @@ pub mod tests {
             env,
             info,
             ExecuteMsg::AddAsset {
-                action: AddAssetAction::ToCounterTrade{trade_id,
-                    counter_id
+                action: AddAssetAction::ToCounterTrade {
+                    trade_id,
+                    counter_id,
                 },
                 asset,
             },
@@ -3144,8 +3144,10 @@ pub mod tests {
         use super::*;
         use crate::query::{AllTradesResponse, TradeResponse};
         use cosmwasm_std::{coin, from_binary, Api, SubMsg};
-        use p2p_trading_export::msg::QueryFilters;
-        use p2p_trading_export::state::{AdditionalTradeInfo, Comment, CounterTradeInfo};
+        use p2p_trading_export::msg::{
+            AdditionalTradeInfoResponse, QueryFilters, TradeInfoResponse,
+        };
+        use p2p_trading_export::state::{Comment, CounterTradeInfo};
 
         #[test]
         fn create_counter_trade() {
@@ -3390,9 +3392,7 @@ pub mod tests {
                 env.clone(),
                 info,
                 ExecuteMsg::AddAsset {
-                    action: AddAssetAction::ToLastCounterTrade{
-                        trade_id: 0
-                    },
+                    action: AddAssetAction::ToLastCounterTrade { trade_id: 0 },
                     asset: AssetInfo::Cw20Coin(Cw20Coin {
                         address: "cw20".to_string(),
                         amount: Uint128::from(100u64),
@@ -3407,9 +3407,7 @@ pub mod tests {
                 env,
                 info,
                 ExecuteMsg::AddAsset {
-                    action: AddAssetAction::ToLastCounterTrade{
-                        trade_id: 0
-                    },
+                    action: AddAssetAction::ToLastCounterTrade { trade_id: 0 },
                     asset: AssetInfo::Coin(coin(97u128, "uluna")),
                 },
             )
@@ -4165,11 +4163,11 @@ pub mod tests {
                         TradeResponse {
                             trade_id: 2,
                             counter_id: None,
-                            trade_info: Some(TradeInfo {
+                            trade_info: Some(TradeInfoResponse {
                                 owner: deps.api.addr_validate("creator").unwrap(),
                                 last_counter_id: Some(0),
                                 state: TradeState::Countered,
-                                additional_info: AdditionalTradeInfo {
+                                additional_info: AdditionalTradeInfoResponse {
                                     owner_comment: Some(Comment {
                                         comment: "Q".to_string(),
                                         time: env.block.time,
@@ -4185,7 +4183,7 @@ pub mod tests {
                         TradeResponse {
                             trade_id: 0,
                             counter_id: None,
-                            trade_info: Some(TradeInfo {
+                            trade_info: Some(TradeInfoResponse {
                                 owner: deps.api.addr_validate("creator").unwrap(),
                                 last_counter_id: Some(3),
                                 state: TradeState::Accepted,
@@ -4193,7 +4191,7 @@ pub mod tests {
                                     trade_id: 0,
                                     counter_id: 0,
                                 }),
-                                additional_info: AdditionalTradeInfo {
+                                additional_info: AdditionalTradeInfoResponse {
                                     owner_comment: Some(Comment {
                                         comment: "Q".to_string(),
                                         time: env.block.time,
@@ -4208,5 +4206,51 @@ pub mod tests {
                 ]
             );
         }
+    }
+
+    #[test]
+    fn create_trade_preview() {
+        let mut deps = mock_dependencies();
+        init_helper(deps.as_mut());
+
+        create_trade_helper(deps.as_mut(), "creator");
+
+        add_asset_to_trade_helper(
+            deps.as_mut(),
+            "creator",
+            0,
+            AssetInfo::Cw721Coin(Cw721Coin {
+                address: "nft".to_string(),
+                token_id: "58".to_string(),
+            }),
+            &[],
+        )
+        .unwrap();
+
+        add_asset_to_trade_helper(
+            deps.as_mut(),
+            "creator",
+            0,
+            AssetInfo::Cw721Coin(Cw721Coin {
+                address: "nft".to_string(),
+                token_id: "59".to_string(),
+            }),
+            &[],
+        )
+        .unwrap();
+
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("creator", &[]),
+            ExecuteMsg::SetTradePreview {
+                action: AddAssetAction::ToTrade { trade_id: 0 },
+                asset: AssetInfo::Cw721Coin(Cw721Coin {
+                    address: "nft".to_string(),
+                    token_id: "59".to_string(),
+                }),
+            },
+        )
+        .unwrap();
     }
 }

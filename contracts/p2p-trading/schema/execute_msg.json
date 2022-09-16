@@ -40,39 +40,15 @@
         "add_asset": {
           "type": "object",
           "required": [
+            "action",
             "asset"
           ],
           "properties": {
+            "action": {
+              "$ref": "#/definitions/AddAssetAction"
+            },
             "asset": {
               "$ref": "#/definitions/AssetInfo"
-            },
-            "counter_id": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            },
-            "to_last_counter": {
-              "type": [
-                "boolean",
-                "null"
-              ]
-            },
-            "to_last_trade": {
-              "type": [
-                "boolean",
-                "null"
-              ]
-            },
-            "trade_id": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
             }
           }
         }
@@ -274,6 +250,90 @@
               "type": "integer",
               "format": "uint64",
               "minimum": 0.0
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "add_tokens_wanted"
+      ],
+      "properties": {
+        "add_tokens_wanted": {
+          "type": "object",
+          "required": [
+            "tokens_wanted"
+          ],
+          "properties": {
+            "tokens_wanted": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/AssetInfo"
+              }
+            },
+            "trade_id": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "remove_tokens_wanted"
+      ],
+      "properties": {
+        "remove_tokens_wanted": {
+          "type": "object",
+          "required": [
+            "tokens_wanted",
+            "trade_id"
+          ],
+          "properties": {
+            "tokens_wanted": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/AssetInfo"
+              }
+            },
+            "trade_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "set_trade_preview"
+      ],
+      "properties": {
+        "set_trade_preview": {
+          "type": "object",
+          "required": [
+            "action",
+            "asset"
+          ],
+          "properties": {
+            "action": {
+              "$ref": "#/definitions/AddAssetAction"
+            },
+            "asset": {
+              "$ref": "#/definitions/AssetInfo"
             }
           }
         }
@@ -635,6 +695,94 @@
     }
   ],
   "definitions": {
+    "AddAssetAction": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "to_last_trade"
+          ],
+          "properties": {
+            "to_last_trade": {
+              "type": "object"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "to_last_counter_trade"
+          ],
+          "properties": {
+            "to_last_counter_trade": {
+              "type": "object",
+              "required": [
+                "trade_id"
+              ],
+              "properties": {
+                "trade_id": {
+                  "type": "integer",
+                  "format": "uint64",
+                  "minimum": 0.0
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "to_trade"
+          ],
+          "properties": {
+            "to_trade": {
+              "type": "object",
+              "required": [
+                "trade_id"
+              ],
+              "properties": {
+                "trade_id": {
+                  "type": "integer",
+                  "format": "uint64",
+                  "minimum": 0.0
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "to_counter_trade"
+          ],
+          "properties": {
+            "to_counter_trade": {
+              "type": "object",
+              "required": [
+                "counter_id",
+                "trade_id"
+              ],
+              "properties": {
+                "counter_id": {
+                  "type": "integer",
+                  "format": "uint64",
+                  "minimum": 0.0
+                },
+                "trade_id": {
+                  "type": "integer",
+                  "format": "uint64",
+                  "minimum": 0.0
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "AssetInfo": {
       "oneOf": [
         {

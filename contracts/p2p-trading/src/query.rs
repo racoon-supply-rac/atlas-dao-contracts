@@ -1,13 +1,18 @@
+use crate::ContractError;
 use cosmwasm_std::Api;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{Deps, Order, StdResult, Storage};
+use std::convert::TryInto;
 
 use cw_storage_plus::Bound;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::state::{get_actual_counter_state, CONTRACT_INFO, COUNTER_TRADE_INFO, TRADE_INFO};
-use p2p_trading_export::msg::QueryFilters;
+use crate::state::{
+    get_actual_counter_state, load_counter_trade, load_trade, CONTRACT_INFO, COUNTER_TRADE_INFO,
+    TRADE_INFO,
+};
+use p2p_trading_export::msg::{QueryFilters, TradeInfoResponse};
 use p2p_trading_export::state::{AssetInfo, ContractInfo, CounterTradeInfo, TradeInfo};
 
 use itertools::Itertools;
@@ -20,7 +25,7 @@ const BASE_LIMIT: usize = 100;
 pub struct TradeResponse {
     pub trade_id: u64,
     pub counter_id: Option<u64>,
-    pub trade_info: Option<TradeInfo>,
+    pub trade_info: Option<TradeInfoResponse>,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
@@ -33,17 +38,36 @@ pub struct AllCounterTradesResponse {
     pub counter_trades: Vec<TradeResponse>,
 }
 
+pub fn query_trade(
+    storage: &dyn Storage,
+    trade_id: u64,
+) -> Result<TradeInfoResponse, ContractError> {
+    let trade_info: TradeInfo = load_trade(storage, trade_id)?;
+    Ok(trade_info.try_into()?)
+}
+
+pub fn query_counter_trade(
+    storage: &dyn Storage,
+    trade_id: u64,
+    counter_id: u64,
+) -> Result<TradeInfoResponse, ContractError> {
+    let counter_info: TradeInfo = load_counter_trade(storage, trade_id, counter_id)?;
+    Ok(counter_info.try_into()?)
+}
+
 pub fn query_contract_info(deps: Deps) -> StdResult<ContractInfo> {
     CONTRACT_INFO.load(deps.storage)
 }
 
 // parse trades to human readable format
 fn parse_trades(_: &dyn Api, item: StdResult<(u64, TradeInfo)>) -> StdResult<TradeResponse> {
-    item.map(|(trade_id, trade)| TradeResponse {
-        trade_id,
-        counter_id: None,
-        trade_info: Some(trade),
-    })
+    item.map(|(trade_id, trade)| {
+        trade.try_into().map(|trade_info| TradeResponse {
+            trade_id,
+            counter_id: None,
+            trade_info: Some(trade_info),
+        })
+    })?
 }
 
 // parse counter trades to human readable format
@@ -55,10 +79,10 @@ fn parse_all_counter_trades(
     item.map(|((trade_id, counter_id), mut counter)| {
         // First two bytes define size [0,8] since we know it's u64 skip it.
         get_actual_counter_state(storage, trade_id, &mut counter)?;
-        Ok(TradeResponse {
+        counter.try_into().map(|trade_info| TradeResponse {
             trade_id,
             counter_id: Some(counter_id),
-            trade_info: Some(counter),
+            trade_info: Some(trade_info),
         })
     })?
 }
@@ -72,10 +96,10 @@ fn parse_counter_trades(
 ) -> StdResult<TradeResponse> {
     item.map(|(counter_id, mut counter)| {
         get_actual_counter_state(storage, trade_id, &mut counter)?;
-        Ok(TradeResponse {
+        counter.try_into().map(|trade_info| TradeResponse {
             trade_id,
             counter_id: Some(counter_id),
-            trade_info: Some(counter),
+            trade_info: Some(trade_info),
         })
     })?
 }

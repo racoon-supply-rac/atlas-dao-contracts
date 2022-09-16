@@ -1,7 +1,11 @@
-use crate::state::{AssetInfo, CounterTradeInfo};
-use cosmwasm_std::{to_binary, Binary, CosmosMsg, StdError, StdResult, WasmMsg};
+use crate::state::{AssetInfo, Comment, CounterTradeInfo, TradeInfo, TradeState};
+use cosmwasm_std::{
+    from_binary, to_binary, Addr, Binary, CosmosMsg, StdError, StdResult, Timestamp, WasmMsg,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
+use std::iter::FromIterator;
 
 fn is_valid_name(name: &str) -> bool {
     let bytes = name.as_bytes();
@@ -49,24 +53,13 @@ impl InstantiateMsg {
     }
 }
 
-
-
-
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum AddAssetAction{
-    ToLastTrade{},
-    ToLastCounterTrade{
-        trade_id: u64
-    },
-    ToTrade{
-        trade_id: u64,
-    },
-    ToCounterTrade{
-        trade_id: u64,
-        counter_id: u64
-    }
+pub enum AddAssetAction {
+    ToLastTrade {},
+    ToLastCounterTrade { trade_id: u64 },
+    ToTrade { trade_id: u64 },
+    ToCounterTrade { trade_id: u64, counter_id: u64 },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -106,6 +99,23 @@ pub enum ExecuteMsg {
         trade_id: u64,
         nfts_wanted: Vec<String>,
     },
+
+    AddTokensWanted {
+        trade_id: Option<u64>,
+        tokens_wanted: Vec<AssetInfo>,
+    },
+    RemoveTokensWanted {
+        trade_id: u64,
+        tokens_wanted: Vec<AssetInfo>,
+    },
+
+    // Sets an NFT as the preview of the trade
+    // This is only informational and has no effect on the trade
+    SetTradePreview {
+        action: AddAssetAction,
+        asset: AssetInfo,
+    },
+
     /// Is used by the Trader to confirm they completed their end of the trade.
     ConfirmTrade {
         trade_id: Option<u64>,
@@ -209,4 +219,72 @@ pub enum QueryMsg {
         limit: Option<u32>,
         filters: Option<QueryFilters>,
     },
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
+#[serde(rename_all = "snake_case")]
+pub struct AdditionalTradeInfoResponse {
+    pub time: Timestamp,
+    pub owner_comment: Option<Comment>,
+    pub trader_comment: Option<Comment>,
+    pub nfts_wanted: Vec<Addr>,
+    pub tokens_wanted: Vec<AssetInfo>, // The tokens wanted can only be a coin of a cw20
+    pub trade_preview: Option<AssetInfo>, // The preview can only be a CW1155 or a CW721 token.
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
+pub struct TradeInfoResponse {
+    pub owner: Addr,
+    pub associated_assets: Vec<AssetInfo>,
+    pub state: TradeState,
+    pub last_counter_id: Option<u64>,
+    pub whitelisted_users: Vec<Addr>,
+    pub additional_info: AdditionalTradeInfoResponse,
+    pub accepted_info: Option<CounterTradeInfo>,
+    pub assets_withdrawn: bool,
+}
+
+impl TryFrom<TradeInfo> for TradeInfoResponse {
+    type Error = StdError;
+
+    fn try_from(trade_info: TradeInfo) -> StdResult<Self> {
+        Ok(TradeInfoResponse {
+            owner: trade_info.owner,
+            associated_assets: trade_info.associated_assets,
+            state: trade_info.state,
+            last_counter_id: trade_info.last_counter_id,
+            whitelisted_users: Vec::from_iter(trade_info.whitelisted_users),
+            additional_info: AdditionalTradeInfoResponse {
+                time: trade_info.additional_info.time,
+                owner_comment: trade_info.additional_info.owner_comment,
+                trader_comment: trade_info.additional_info.trader_comment,
+                nfts_wanted: Vec::from_iter(trade_info.additional_info.nfts_wanted),
+                tokens_wanted: trade_info
+                    .additional_info
+                    .tokens_wanted
+                    .iter()
+                    .map(from_binary)
+                    .collect::<Result<Vec<AssetInfo>, StdError>>()?,
+                trade_preview: trade_info.additional_info.trade_preview,
+            },
+            accepted_info: trade_info.accepted_info,
+            assets_withdrawn: trade_info.assets_withdrawn,
+        })
+    }
+}
+
+impl Default for TradeInfoResponse {
+    fn default() -> Self {
+        Self {
+            owner: Addr::unchecked(""),
+            associated_assets: vec![],
+            state: TradeState::Created,
+            last_counter_id: None,
+            whitelisted_users: vec![],
+            additional_info: AdditionalTradeInfoResponse::default(),
+            accepted_info: None,
+            assets_withdrawn: false,
+        }
+    }
 }

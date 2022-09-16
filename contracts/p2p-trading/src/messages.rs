@@ -1,9 +1,12 @@
+use crate::counter_trade::prepare_counter_modification;
 use crate::error::ContractError;
 use crate::state::{
     is_counter_trader, is_trader, load_counter_trade, COUNTER_TRADE_INFO, TRADE_INFO,
 };
+use crate::trade::prepare_trade_modification;
 use cosmwasm_std::{DepsMut, Env, MessageInfo, Response};
-use p2p_trading_export::state::{Comment, TradeState};
+use p2p_trading_export::msg::AddAssetAction;
+use p2p_trading_export::state::{AssetInfo, Comment, TradeState};
 
 pub fn review_counter_trade(
     deps: DepsMut,
@@ -83,4 +86,71 @@ pub fn set_comment(
     } else {
         Ok(partial_res)
     }
+}
+
+pub fn set_trade_preview(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    action: AddAssetAction,
+    asset: AssetInfo,
+) -> Result<Response, ContractError> {
+    // First we get the trade_info to modify
+    let (trade_id, counter_id, mut trade_info) = match action {
+        AddAssetAction::ToLastTrade {} => {
+            let (trade_id, trade_info) =
+                prepare_trade_modification(deps.as_ref(), info.sender, None)?;
+            (trade_id, None, trade_info)
+        }
+        AddAssetAction::ToTrade { trade_id } => {
+            let (trade_id, trade_info) =
+                prepare_trade_modification(deps.as_ref(), info.sender, Some(trade_id))?;
+            (trade_id, None, trade_info)
+        }
+        AddAssetAction::ToLastCounterTrade { trade_id } => {
+            let (counter_id, trade_info) =
+                prepare_counter_modification(deps.as_ref(), info.sender, trade_id, None)?;
+            (trade_id, Some(counter_id), trade_info)
+        }
+        AddAssetAction::ToCounterTrade {
+            trade_id,
+            counter_id,
+        } => {
+            let (counter_id, trade_info) = prepare_counter_modification(
+                deps.as_ref(),
+                info.sender,
+                trade_id,
+                Some(counter_id),
+            )?;
+            (trade_id, Some(counter_id), trade_info)
+        }
+    };
+
+    // Then we verify we can set the asset as preview
+
+    if !trade_info.associated_assets.iter().any(|r| *r == asset) {
+        return Err(ContractError::AssetNotInTrade {});
+    }
+
+    // And set it
+    trade_info.additional_info.trade_preview = Some(asset);
+
+    // Finally we save the trade info behind ourselves
+    match counter_id {
+        Some(counter_id) => {
+            COUNTER_TRADE_INFO.save(deps.storage, (trade_id, counter_id), &trade_info)?
+        }
+        None => TRADE_INFO.save(deps.storage, trade_id, &trade_info)?,
+    }
+
+    let mut res = Response::new()
+        .add_attribute("action", "set_trade_preview")
+        .add_attribute("trade_id", trade_id.to_string())
+        .add_attribute("trader", trade_info.owner);
+
+    if let Some(counter_id) = counter_id {
+        res = res.add_attribute("counter_id", counter_id.to_string())
+    }
+
+    Ok(res)
 }
