@@ -99,6 +99,13 @@ pub enum ExecuteMsg {
         trade_id: u64,
         nfts_wanted: Vec<String>,
     },
+    SetNFTsWanted {
+        trade_id: Option<u64>,
+        nfts_wanted: Vec<String>,
+    },
+    FlushNFTsWanted {
+        trade_id: u64,
+    },
 
     AddTokensWanted {
         trade_id: Option<u64>,
@@ -107,6 +114,13 @@ pub enum ExecuteMsg {
     RemoveTokensWanted {
         trade_id: u64,
         tokens_wanted: Vec<AssetInfo>,
+    },
+    SetTokensWanted {
+        trade_id: Option<u64>,
+        tokens_wanted: Vec<AssetInfo>,
+    },
+    FlushTokensWanted {
+        trade_id: u64,
     },
 
     // Sets an NFT as the preview of the trade

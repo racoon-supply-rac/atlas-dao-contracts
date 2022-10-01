@@ -132,6 +132,19 @@ pub fn prepare_trade_modification(
     Ok((trade_id, trade_info))
 }
 
+/// We prepare the info before asset addition
+/// 1. If the trade_id is not specified, we get the last trade_id created by the sender
+/// 2. We verify the trade can be modified
+pub fn prepare_harmless_trade_modifications(
+    deps: Deps,
+    trader: Addr,
+    trade_id: Option<u64>,
+) -> Result<(u64, TradeInfo), ContractError> {
+    let trade_id = trade_id_or_last(deps, trader.clone(), trade_id)?;
+    let trade_info = is_trader(deps.storage, &trader, trade_id)?;
+    Ok((trade_id, trade_info))
+}
+
 pub fn _create_receive_asset_messages(
     env: Env,
     info: MessageInfo,
@@ -596,7 +609,7 @@ pub fn add_nfts_wanted(
 ) -> Result<Response, ContractError> {
     // We verify the trade can be modified
     let (trade_id, mut trade_info) =
-        prepare_trade_modification(deps.as_ref(), info.sender.clone(), trade_id)?;
+        prepare_harmless_trade_modifications(deps.as_ref(), info.sender.clone(), trade_id)?;
     // We modify the nfts wanted
     let hash_set: HashSet<Addr> = HashSet::from_iter(validate_addresses(deps.api, &nfts_wanted)?);
     trade_info.additional_info.nfts_wanted = trade_info
@@ -625,8 +638,9 @@ pub fn remove_nfts_wanted(
     trade_id: u64,
     nfts_wanted: Vec<String>,
 ) -> Result<Response, ContractError> {
-    // We verify the trade can be modified
-    let mut trade_info = can_modify_trade(deps.storage, info.sender.clone(), trade_id)?;
+    // We verify the caller of the function is the trader
+    let mut trade_info = is_trader(deps.storage, &info.sender, trade_id)?;
+
     // We modify the whitelist
     let valid_nfts_wanted = validate_addresses(deps.api, &nfts_wanted)?;
     for nft in &valid_nfts_wanted {
@@ -643,6 +657,54 @@ pub fn remove_nfts_wanted(
         .add_attribute("trader", info.sender))
 }
 
+/// Set wanted nfts (only informational) to a trade
+pub fn set_nfts_wanted(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    trade_id: Option<u64>,
+    nfts_wanted: Vec<String>,
+) -> Result<Response, ContractError> {
+    // We verify the trade can be modified
+    let (trade_id, mut trade_info) =
+        prepare_harmless_trade_modifications(deps.as_ref(), info.sender.clone(), trade_id)?;
+    // We modify the nfts wanted
+    trade_info.additional_info.nfts_wanted =
+        HashSet::from_iter(validate_addresses(deps.api, &nfts_wanted)?);
+
+    TRADE_INFO.save(deps.storage, trade_id, &trade_info)?;
+
+    Ok(Response::new()
+        .add_attribute("action", "modify_parameter")
+        .add_attribute("name", "nfts_wanted")
+        .add_attribute("operation_type", "set")
+        .add_attribute("value", nfts_wanted.join(","))
+        .add_attribute("trade_id", trade_id.to_string())
+        .add_attribute("trader", info.sender))
+}
+
+/// Flush wanted nfts (only informational) from a trade
+pub fn flush_nfts_wanted(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    trade_id: u64,
+) -> Result<Response, ContractError> {
+    // We verify the caller of the function is the trader
+    let mut trade_info = is_trader(deps.storage, &info.sender, trade_id)?;
+
+    // We modify the whitelist
+    trade_info.additional_info.nfts_wanted = HashSet::new();
+    TRADE_INFO.save(deps.storage, trade_id, &trade_info)?;
+
+    Ok(Response::new()
+        .add_attribute("action", "modify_parameter")
+        .add_attribute("name", "nfts_wanted")
+        .add_attribute("operation_type", "flush")
+        .add_attribute("trade_id", trade_id.to_string())
+        .add_attribute("trader", info.sender))
+}
+
 /// Add wanted nfts (only informational) to a trade
 pub fn add_tokens_wanted(
     deps: DepsMut,
@@ -653,7 +715,7 @@ pub fn add_tokens_wanted(
 ) -> Result<Response, ContractError> {
     // We verify the trade can be modified
     let (trade_id, mut trade_info) =
-        prepare_trade_modification(deps.as_ref(), info.sender.clone(), trade_id)?;
+        prepare_harmless_trade_modifications(deps.as_ref(), info.sender.clone(), trade_id)?;
 
     // We validate the tokens_wanted structure
     for token in tokens_wanted.clone() {
@@ -688,7 +750,7 @@ pub fn add_tokens_wanted(
         .add_attribute("trader", info.sender))
 }
 
-/// Remove wanted nfts (only informational) from a trade
+/// Remove wanted tokens (only informational) from a trade
 pub fn remove_tokens_wanted(
     deps: DepsMut,
     _env: Env,
@@ -697,7 +759,7 @@ pub fn remove_tokens_wanted(
     tokens_wanted: Vec<AssetInfo>,
 ) -> Result<Response, ContractError> {
     // We verify the trade can be modified
-    let mut trade_info = can_modify_trade(deps.storage, info.sender.clone(), trade_id)?;
+    let mut trade_info = is_trader(deps.storage, &info.sender, trade_id)?;
     // We modify the whitelist
     let parse_nfts_wanted = tokens_wanted
         .iter()
@@ -707,6 +769,66 @@ pub fn remove_tokens_wanted(
     for token in &parse_nfts_wanted {
         trade_info.additional_info.tokens_wanted.remove(token);
     }
+    TRADE_INFO.save(deps.storage, trade_id, &trade_info)?;
+
+    Ok(Response::new()
+        .add_attribute("action", "modify_parameter")
+        .add_attribute("name", "tokens_wanted")
+        .add_attribute("operation_type", "remove")
+        .add_attribute("trade_id", trade_id.to_string())
+        .add_attribute("trader", info.sender))
+}
+
+/// Set wanted tokens (only informational) to a trade
+pub fn set_tokens_wanted(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    trade_id: Option<u64>,
+    tokens_wanted: Vec<AssetInfo>,
+) -> Result<Response, ContractError> {
+    // We verify the trade can be modified
+    let (trade_id, mut trade_info) =
+        prepare_harmless_trade_modifications(deps.as_ref(), info.sender.clone(), trade_id)?;
+
+    // We validate the tokens_wanted structure
+    for token in tokens_wanted.clone() {
+        match token {
+            AssetInfo::Coin(_) | AssetInfo::Cw20Coin(_) => Ok(()),
+            _ => Err(ContractError::WrongTokenType {}),
+        }?
+    }
+
+    // We modify the nfts wanted
+    trade_info.additional_info.tokens_wanted = HashSet::from_iter(
+        tokens_wanted
+            .iter()
+            .map(to_binary)
+            .collect::<Result<Vec<Binary>, StdError>>()?,
+    );
+
+    TRADE_INFO.save(deps.storage, trade_id, &trade_info)?;
+
+    Ok(Response::new()
+        .add_attribute("action", "modify_parameter")
+        .add_attribute("name", "tokens_wanted")
+        .add_attribute("operation_type", "set")
+        .add_attribute("trade_id", trade_id.to_string())
+        .add_attribute("trader", info.sender))
+}
+
+/// Remove wanted tokens (only informational) from a trade
+pub fn flush_tokens_wanted(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    trade_id: u64,
+) -> Result<Response, ContractError> {
+    // We verify the trade can be modified
+    let mut trade_info = is_trader(deps.storage, &info.sender, trade_id)?;
+    // We flush the wanted tokens
+    trade_info.additional_info.tokens_wanted = HashSet::new();
+
     TRADE_INFO.save(deps.storage, trade_id, &trade_info)?;
 
     Ok(Response::new()

@@ -208,7 +208,6 @@ pub fn withdraw_counter_trade_assets_while_creating(
         }
     }
 
-
     COUNTER_TRADE_INFO.save(deps.storage, (trade_id, counter_id), &counter_info)?;
 
     let res = _create_withdraw_messages_unsafe(
@@ -220,8 +219,8 @@ pub fn withdraw_counter_trade_assets_while_creating(
     let trade_info = load_trade(deps.storage, trade_id)?;
     Ok(res
         .add_attribute("action", "remove_from_counter_trade")
-        .add_attribute("trade", trade_id.to_string())
-        .add_attribute("counter", counter_id.to_string())
+        .add_attribute("trade_id", trade_id.to_string())
+        .add_attribute("counter_id", counter_id.to_string())
         .add_attribute("trader", trade_info.owner)
         .add_attribute("counter_trader", info.sender))
 }
@@ -254,8 +253,8 @@ pub fn confirm_counter_trade(
 
     Ok(Response::new()
         .add_attribute("action", "confirm_counter_trade")
-        .add_attribute("trade", trade_id.to_string())
-        .add_attribute("counter", counter_id.to_string())
+        .add_attribute("trade_id", trade_id.to_string())
+        .add_attribute("counter_id", counter_id.to_string())
         .add_attribute("trader", trade_info.owner)
         .add_attribute("counter_trader", info.sender))
 }
@@ -289,8 +288,8 @@ pub fn cancel_counter_trade(
 
     Ok(Response::new()
         .add_attribute("action", "cancel_counter_trade")
-        .add_attribute("trade", trade_id.to_string())
-        .add_attribute("counter", counter_id.to_string())
+        .add_attribute("trade_id", trade_id.to_string())
+        .add_attribute("counter_id", counter_id.to_string())
         .add_attribute("trader", trade_info.owner)
         .add_attribute("counter_trader", info.sender))
 }
@@ -327,8 +326,8 @@ pub fn withdraw_all_from_counter(
     Ok(res
         .add_attribute("action", "withdraw_all_funds")
         .add_attribute("type", "counter_trade")
-        .add_attribute("trade", trade_id.to_string())
-        .add_attribute("counter", counter_id.to_string())
+        .add_attribute("trade_id", trade_id.to_string())
+        .add_attribute("counter_id", counter_id.to_string())
         .add_attribute("trader", trade_info.owner)
         .add_attribute("counter_trader", counter_info.owner))
 }

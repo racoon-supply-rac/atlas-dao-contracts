@@ -21,7 +21,7 @@ use crate::trade::{
     accept_trade, add_asset_to_trade, add_nfts_wanted, add_tokens_wanted, add_whitelisted_users,
     cancel_trade, check_and_create_withdraw_messages, confirm_trade, create_trade,
     refuse_counter_trade, remove_nfts_wanted, remove_tokens_wanted, remove_whitelisted_users,
-    withdraw_all_from_trade, withdraw_trade_assets_while_creating,
+    withdraw_all_from_trade, withdraw_trade_assets_while_creating, set_tokens_wanted, flush_tokens_wanted, set_nfts_wanted, flush_nfts_wanted
 };
 
 use crate::messages::{review_counter_trade, set_comment, set_trade_preview};
@@ -109,6 +109,15 @@ pub fn execute(
             nfts_wanted,
         } => remove_nfts_wanted(deps, env, info, trade_id, nfts_wanted),
 
+        ExecuteMsg::SetNFTsWanted {
+            trade_id,
+            nfts_wanted,
+        } => set_nfts_wanted(deps, env, info, trade_id, nfts_wanted),
+
+        ExecuteMsg::FlushNFTsWanted {
+            trade_id,
+        } => flush_nfts_wanted(deps, env, info, trade_id),
+
         ExecuteMsg::AddTokensWanted {
             trade_id,
             tokens_wanted,
@@ -118,6 +127,15 @@ pub fn execute(
             trade_id,
             tokens_wanted,
         } => remove_tokens_wanted(deps, env, info, trade_id, tokens_wanted),
+
+        ExecuteMsg::SetTokensWanted {
+            trade_id,
+            tokens_wanted,
+        } => set_tokens_wanted(deps, env, info, trade_id, tokens_wanted),
+
+        ExecuteMsg::FlushTokensWanted {
+            trade_id,
+        } => flush_tokens_wanted(deps, env, info, trade_id),
 
         ExecuteMsg::SetTradePreview { action, asset } => {
             set_trade_preview(deps, env, info, action, asset)
@@ -3836,8 +3854,8 @@ pub mod tests {
                 res.attributes,
                 vec![
                     Attribute::new("action", "confirm_counter_trade"),
-                    Attribute::new("trade", "0"),
-                    Attribute::new("counter", "0"),
+                    Attribute::new("trade_id", "0"),
+                    Attribute::new("counter_id", "0"),
                     Attribute::new("trader", "creator"),
                     Attribute::new("counter_trader", "counterer"),
                 ]
