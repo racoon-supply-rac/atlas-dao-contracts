@@ -20,8 +20,9 @@ use crate::counter_trade::{
 use crate::trade::{
     accept_trade, add_asset_to_trade, add_nfts_wanted, add_tokens_wanted, add_whitelisted_users,
     cancel_trade, check_and_create_withdraw_messages, confirm_trade, create_trade,
-    refuse_counter_trade, remove_nfts_wanted, remove_tokens_wanted, remove_whitelisted_users,
-    withdraw_all_from_trade, withdraw_trade_assets_while_creating, set_tokens_wanted, flush_tokens_wanted, set_nfts_wanted, flush_nfts_wanted
+    flush_nfts_wanted, flush_tokens_wanted, refuse_counter_trade, remove_nfts_wanted,
+    remove_tokens_wanted, remove_whitelisted_users, set_nfts_wanted, set_tokens_wanted,
+    withdraw_all_from_trade, withdraw_trade_assets_while_creating,
 };
 
 use crate::messages::{review_counter_trade, set_comment, set_trade_preview};
@@ -114,9 +115,7 @@ pub fn execute(
             nfts_wanted,
         } => set_nfts_wanted(deps, env, info, trade_id, nfts_wanted),
 
-        ExecuteMsg::FlushNFTsWanted {
-            trade_id,
-        } => flush_nfts_wanted(deps, env, info, trade_id),
+        ExecuteMsg::FlushNFTsWanted { trade_id } => flush_nfts_wanted(deps, env, info, trade_id),
 
         ExecuteMsg::AddTokensWanted {
             trade_id,
@@ -133,9 +132,9 @@ pub fn execute(
             tokens_wanted,
         } => set_tokens_wanted(deps, env, info, trade_id, tokens_wanted),
 
-        ExecuteMsg::FlushTokensWanted {
-            trade_id,
-        } => flush_tokens_wanted(deps, env, info, trade_id),
+        ExecuteMsg::FlushTokensWanted { trade_id } => {
+            flush_tokens_wanted(deps, env, info, trade_id)
+        }
 
         ExecuteMsg::SetTradePreview { action, asset } => {
             set_trade_preview(deps, env, info, action, asset)
@@ -395,8 +394,8 @@ pub fn withdraw_accepted_funds(
     Ok(res
         .add_attribute("action", "withdraw_funds")
         .add_attribute("type", trade_type)
-        .add_attribute("trade", trade_id.to_string())
-        .add_attribute("counter", counter_id.to_string())
+        .add_attribute("trade_id", trade_id.to_string())
+        .add_attribute("counter_id", counter_id.to_string())
         .add_attribute("trader", trade_info.owner)
         .add_attribute("counter_trader", counter_info.owner))
 }

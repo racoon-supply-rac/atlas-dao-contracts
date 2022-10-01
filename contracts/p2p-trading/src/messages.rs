@@ -79,10 +79,10 @@ pub fn set_comment(
     }
     let partial_res = Response::new()
         .add_attribute("action", "set_comment")
-        .add_attribute("trade", trade_id.to_string());
+        .add_attribute("trade_id", trade_id.to_string());
 
     if let Some(counter_id) = counter_id {
-        Ok(partial_res.add_attribute("counter", counter_id.to_string()))
+        Ok(partial_res.add_attribute("counter_id", counter_id.to_string()))
     } else {
         Ok(partial_res)
     }

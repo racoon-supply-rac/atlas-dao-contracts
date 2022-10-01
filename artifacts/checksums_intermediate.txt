@@ -1,1 +1,1 @@
-bd519a33c8071d710bf009a59134e25864661ce5c81cd475e1d9dabdb982d9d3  target/wasm32-unknown-unknown/release/p2p_trading.wasm
+56e6ceba8df79fb448c328dc5fc095216960dc5ee672c4fd9295860f61ea706e  target/wasm32-unknown-unknown/release/p2p_trading.wasm

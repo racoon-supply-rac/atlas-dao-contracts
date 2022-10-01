@@ -1,1 +1,1 @@
-ee635fb5254a7ca5a53f4a655ab14a5acdaae82f01d419944215030e12f1d96f  p2p_trading.wasm
+d67b15c9777bd8294cdf9aae3b002e41a84c608dc1a5f462da1feafc35bbd2fc  p2p_trading.wasm
