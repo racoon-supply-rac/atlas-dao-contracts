@@ -564,11 +564,16 @@ pub fn add_whitelisted_users(
         .collect();
     TRADE_INFO.save(storage, trade_id, &trade_info)?;
 
+    let mut users_attribute = whitelisted_users.join(",");
+    if users_attribute.is_empty(){
+        users_attribute = "None".to_string()
+    }
+
     Ok(Response::new()
         .add_attribute("action", "modify_parameter")
         .add_attribute("name", "whitelisted_users")
         .add_attribute("operation_type", "add")
-        .add_attribute("value", whitelisted_users.join(","))
+        .add_attribute("value", users_attribute)
         .add_attribute("trade_id", trade_id.to_string())
         .add_attribute("trader", info.sender))
 }
@@ -625,7 +630,6 @@ pub fn add_nfts_wanted(
         .add_attribute("action", "modify_parameter")
         .add_attribute("name", "nfts_wanted")
         .add_attribute("operation_type", "add")
-        .add_attribute("value", nfts_wanted.join(","))
         .add_attribute("trade_id", trade_id.to_string())
         .add_attribute("trader", info.sender))
 }
@@ -652,7 +656,6 @@ pub fn remove_nfts_wanted(
         .add_attribute("action", "modify_parameter")
         .add_attribute("name", "nfts_wanted")
         .add_attribute("operation_type", "remove")
-        .add_attribute("value", nfts_wanted.join(","))
         .add_attribute("trade_id", trade_id.to_string())
         .add_attribute("trader", info.sender))
 }
@@ -678,7 +681,6 @@ pub fn set_nfts_wanted(
         .add_attribute("action", "modify_parameter")
         .add_attribute("name", "nfts_wanted")
         .add_attribute("operation_type", "set")
-        .add_attribute("value", nfts_wanted.join(","))
         .add_attribute("trade_id", trade_id.to_string())
         .add_attribute("trader", info.sender))
 }
