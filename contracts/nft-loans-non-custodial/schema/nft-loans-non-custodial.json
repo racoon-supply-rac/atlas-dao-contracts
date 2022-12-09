@@ -1,0 +1,2139 @@
+{
+  "contract_name": "nft-loans-non-custodial",
+  "contract_version": "0.9.0",
+  "idl_version": "1.0.0",
+  "instantiate": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "InstantiateMsg",
+    "type": "object",
+    "required": [
+      "fee_distributor",
+      "fee_rate",
+      "name"
+    ],
+    "properties": {
+      "fee_distributor": {
+        "type": "string"
+      },
+      "fee_rate": {
+        "$ref": "#/definitions/Uint128"
+      },
+      "name": {
+        "type": "string"
+      },
+      "owner": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "additionalProperties": false,
+    "definitions": {
+      "Uint128": {
+        "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+        "type": "string"
+      }
+    }
+  },
+  "execute": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ExecuteMsg",
+    "description": "This contract nevers holds any funds In case it does, it's that an error occured TODO, we need to provide a way to make sure we can get those funds back",
+    "oneOf": [
+      {
+        "type": "object",
+        "required": [
+          "deposit_collaterals"
+        ],
+        "properties": {
+          "deposit_collaterals": {
+            "type": "object",
+            "required": [
+              "tokens"
+            ],
+            "properties": {
+              "comment": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "terms": {
+                "anyOf": [
+                  {
+                    "$ref": "#/definitions/LoanTerms"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "tokens": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/AssetInfo"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Used to modify the loan terms and the associated comment",
+        "type": "object",
+        "required": [
+          "modify_collaterals"
+        ],
+        "properties": {
+          "modify_collaterals": {
+            "type": "object",
+            "required": [
+              "loan_id"
+            ],
+            "properties": {
+              "comment": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "loan_id": {
+                "type": "integer",
+                "format": "uint64",
+                "minimum": 0.0
+              },
+              "terms": {
+                "anyOf": [
+                  {
+                    "$ref": "#/definitions/LoanTerms"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Used to withdraw the collateral before the loan starts",
+        "type": "object",
+        "required": [
+          "withdraw_collaterals"
+        ],
+        "properties": {
+          "withdraw_collaterals": {
+            "type": "object",
+            "required": [
+              "loan_id"
+            ],
+            "properties": {
+              "loan_id": {
+                "type": "integer",
+                "format": "uint64",
+                "minimum": 0.0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Make an offer to deposited collaterals",
+        "type": "object",
+        "required": [
+          "make_offer"
+        ],
+        "properties": {
+          "make_offer": {
+            "type": "object",
+            "required": [
+              "borrower",
+              "loan_id",
+              "terms"
+            ],
+            "properties": {
+              "borrower": {
+                "type": "string"
+              },
+              "comment": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "loan_id": {
+                "type": "integer",
+                "format": "uint64",
+                "minimum": 0.0
+              },
+              "terms": {
+                "$ref": "#/definitions/LoanTerms"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "cancel_offer"
+        ],
+        "properties": {
+          "cancel_offer": {
+            "type": "object",
+            "required": [
+              "global_offer_id"
+            ],
+            "properties": {
+              "global_offer_id": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "refuse_offer"
+        ],
+        "properties": {
+          "refuse_offer": {
+            "type": "object",
+            "required": [
+              "global_offer_id"
+            ],
+            "properties": {
+              "global_offer_id": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "withdraw_refused_offer"
+        ],
+        "properties": {
+          "withdraw_refused_offer": {
+            "type": "object",
+            "required": [
+              "global_offer_id"
+            ],
+            "properties": {
+              "global_offer_id": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "accept_offer"
+        ],
+        "properties": {
+          "accept_offer": {
+            "type": "object",
+            "required": [
+              "global_offer_id"
+            ],
+            "properties": {
+              "global_offer_id": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "accept_loan"
+        ],
+        "properties": {
+          "accept_loan": {
+            "type": "object",
+            "required": [
+              "borrower",
+              "loan_id"
+            ],
+            "properties": {
+              "borrower": {
+                "type": "string"
+              },
+              "comment": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "loan_id": {
+                "type": "integer",
+                "format": "uint64",
+                "minimum": 0.0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "repay_borrowed_funds"
+        ],
+        "properties": {
+          "repay_borrowed_funds": {
+            "type": "object",
+            "required": [
+              "loan_id"
+            ],
+            "properties": {
+              "loan_id": {
+                "type": "integer",
+                "format": "uint64",
+                "minimum": 0.0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Used only when the loan can be paid back late",
+        "type": "object",
+        "required": [
+          "withdraw_defaulted_loan"
+        ],
+        "properties": {
+          "withdraw_defaulted_loan": {
+            "type": "object",
+            "required": [
+              "borrower",
+              "loan_id"
+            ],
+            "properties": {
+              "borrower": {
+                "type": "string"
+              },
+              "loan_id": {
+                "type": "integer",
+                "format": "uint64",
+                "minimum": 0.0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Internal state",
+        "type": "object",
+        "required": [
+          "set_owner"
+        ],
+        "properties": {
+          "set_owner": {
+            "type": "object",
+            "required": [
+              "owner"
+            ],
+            "properties": {
+              "owner": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "set_fee_distributor"
+        ],
+        "properties": {
+          "set_fee_distributor": {
+            "type": "object",
+            "required": [
+              "fee_depositor"
+            ],
+            "properties": {
+              "fee_depositor": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "set_fee_rate"
+        ],
+        "properties": {
+          "set_fee_rate": {
+            "type": "object",
+            "required": [
+              "fee_rate"
+            ],
+            "properties": {
+              "fee_rate": {
+                "$ref": "#/definitions/Uint128"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    ],
+    "definitions": {
+      "AssetInfo": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "coin"
+            ],
+            "properties": {
+              "coin": {
+                "$ref": "#/definitions/Coin"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "cw20_coin"
+            ],
+            "properties": {
+              "cw20_coin": {
+                "$ref": "#/definitions/Cw20Coin"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "cw721_coin"
+            ],
+            "properties": {
+              "cw721_coin": {
+                "$ref": "#/definitions/Cw721Coin"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "cw1155_coin"
+            ],
+            "properties": {
+              "cw1155_coin": {
+                "$ref": "#/definitions/Cw1155Coin"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "Coin": {
+        "type": "object",
+        "required": [
+          "amount",
+          "denom"
+        ],
+        "properties": {
+          "amount": {
+            "$ref": "#/definitions/Uint128"
+          },
+          "denom": {
+            "type": "string"
+          }
+        }
+      },
+      "Cw1155Coin": {
+        "type": "object",
+        "required": [
+          "address",
+          "token_id",
+          "value"
+        ],
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "token_id": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/definitions/Uint128"
+          }
+        }
+      },
+      "Cw20Coin": {
+        "type": "object",
+        "required": [
+          "address",
+          "amount"
+        ],
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "amount": {
+            "$ref": "#/definitions/Uint128"
+          }
+        }
+      },
+      "Cw721Coin": {
+        "type": "object",
+        "required": [
+          "address",
+          "token_id"
+        ],
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "token_id": {
+            "type": "string"
+          }
+        }
+      },
+      "LoanTerms": {
+        "type": "object",
+        "required": [
+          "duration_in_blocks",
+          "interest",
+          "principle"
+        ],
+        "properties": {
+          "duration_in_blocks": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          "interest": {
+            "$ref": "#/definitions/Uint128"
+          },
+          "principle": {
+            "$ref": "#/definitions/Coin"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Uint128": {
+        "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+        "type": "string"
+      }
+    }
+  },
+  "query": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "QueryMsg",
+    "oneOf": [
+      {
+        "type": "object",
+        "required": [
+          "contract_info"
+        ],
+        "properties": {
+          "contract_info": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "borrower_info"
+        ],
+        "properties": {
+          "borrower_info": {
+            "type": "object",
+            "required": [
+              "borrower"
+            ],
+            "properties": {
+              "borrower": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "collateral_info"
+        ],
+        "properties": {
+          "collateral_info": {
+            "type": "object",
+            "required": [
+              "borrower",
+              "loan_id"
+            ],
+            "properties": {
+              "borrower": {
+                "type": "string"
+              },
+              "loan_id": {
+                "type": "integer",
+                "format": "uint64",
+                "minimum": 0.0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "collaterals"
+        ],
+        "properties": {
+          "collaterals": {
+            "type": "object",
+            "required": [
+              "borrower"
+            ],
+            "properties": {
+              "borrower": {
+                "type": "string"
+              },
+              "limit": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint32",
+                "minimum": 0.0
+              },
+              "start_after": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint64",
+                "minimum": 0.0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "all_collaterals"
+        ],
+        "properties": {
+          "all_collaterals": {
+            "type": "object",
+            "properties": {
+              "limit": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint32",
+                "minimum": 0.0
+              },
+              "start_after": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer",
+                    "format": "uint64",
+                    "minimum": 0.0
+                  }
+                ],
+                "maxItems": 2,
+                "minItems": 2
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "offer_info"
+        ],
+        "properties": {
+          "offer_info": {
+            "type": "object",
+            "required": [
+              "global_offer_id"
+            ],
+            "properties": {
+              "global_offer_id": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "offers"
+        ],
+        "properties": {
+          "offers": {
+            "type": "object",
+            "required": [
+              "borrower",
+              "loan_id"
+            ],
+            "properties": {
+              "borrower": {
+                "type": "string"
+              },
+              "limit": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint32",
+                "minimum": 0.0
+              },
+              "loan_id": {
+                "type": "integer",
+                "format": "uint64",
+                "minimum": 0.0
+              },
+              "start_after": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "lender_offers"
+        ],
+        "properties": {
+          "lender_offers": {
+            "type": "object",
+            "required": [
+              "lender"
+            ],
+            "properties": {
+              "lender": {
+                "type": "string"
+              },
+              "limit": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint32",
+                "minimum": 0.0
+              },
+              "start_after": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    ]
+  },
+  "migrate": null,
+  "sudo": null,
+  "responses": {
+    "all_collaterals": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "MultipleCollateralsAllResponse",
+      "type": "object",
+      "required": [
+        "collaterals"
+      ],
+      "properties": {
+        "collaterals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CollateralResponse"
+          }
+        },
+        "next_collateral": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          ],
+          "maxItems": 2,
+          "minItems": 2
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "AssetInfo": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": [
+                "coin"
+              ],
+              "properties": {
+                "coin": {
+                  "$ref": "#/definitions/Coin"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": [
+                "cw20_coin"
+              ],
+              "properties": {
+                "cw20_coin": {
+                  "$ref": "#/definitions/Cw20Coin"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": [
+                "cw721_coin"
+              ],
+              "properties": {
+                "cw721_coin": {
+                  "$ref": "#/definitions/Cw721Coin"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": [
+                "cw1155_coin"
+              ],
+              "properties": {
+                "cw1155_coin": {
+                  "$ref": "#/definitions/Cw1155Coin"
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "Coin": {
+          "type": "object",
+          "required": [
+            "amount",
+            "denom"
+          ],
+          "properties": {
+            "amount": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "denom": {
+              "type": "string"
+            }
+          }
+        },
+        "CollateralInfo": {
+          "type": "object",
+          "required": [
+            "associated_assets",
+            "list_date",
+            "offer_amount",
+            "state"
+          ],
+          "properties": {
+            "active_offer": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "associated_assets": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/AssetInfo"
+              }
+            },
+            "comment": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "list_date": {
+              "$ref": "#/definitions/Timestamp"
+            },
+            "offer_amount": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "start_block": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "state": {
+              "$ref": "#/definitions/LoanState"
+            },
+            "terms": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/LoanTerms"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "CollateralResponse": {
+          "type": "object",
+          "required": [
+            "borrower",
+            "collateral",
+            "loan_id"
+          ],
+          "properties": {
+            "borrower": {
+              "type": "string"
+            },
+            "collateral": {
+              "$ref": "#/definitions/CollateralInfo"
+            },
+            "loan_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          },
+          "additionalProperties": false
+        },
+        "Cw1155Coin": {
+          "type": "object",
+          "required": [
+            "address",
+            "token_id",
+            "value"
+          ],
+          "properties": {
+            "address": {
+              "type": "string"
+            },
+            "token_id": {
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/definitions/Uint128"
+            }
+          }
+        },
+        "Cw20Coin": {
+          "type": "object",
+          "required": [
+            "address",
+            "amount"
+          ],
+          "properties": {
+            "address": {
+              "type": "string"
+            },
+            "amount": {
+              "$ref": "#/definitions/Uint128"
+            }
+          }
+        },
+        "Cw721Coin": {
+          "type": "object",
+          "required": [
+            "address",
+            "token_id"
+          ],
+          "properties": {
+            "address": {
+              "type": "string"
+            },
+            "token_id": {
+              "type": "string"
+            }
+          }
+        },
+        "LoanState": {
+          "type": "string",
+          "enum": [
+            "published",
+            "started",
+            "defaulted",
+            "ended",
+            "asset_withdrawn"
+          ]
+        },
+        "LoanTerms": {
+          "type": "object",
+          "required": [
+            "duration_in_blocks",
+            "interest",
+            "principle"
+          ],
+          "properties": {
+            "duration_in_blocks": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "interest": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "principle": {
+              "$ref": "#/definitions/Coin"
+            }
+          },
+          "additionalProperties": false
+        },
+        "Timestamp": {
+          "description": "A point in time in nanosecond precision.\n\nThis type can represent times from 1970-01-01T00:00:00Z to 2554-07-21T23:34:33Z.\n\n## Examples\n\n``` # use cosmwasm_std::Timestamp; let ts = Timestamp::from_nanos(1_000_000_202); assert_eq!(ts.nanos(), 1_000_000_202); assert_eq!(ts.seconds(), 1); assert_eq!(ts.subsec_nanos(), 202);\n\nlet ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Uint64"
+            }
+          ]
+        },
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        },
+        "Uint64": {
+          "description": "A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u64` to get the value out:\n\n``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);\n\nlet b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```",
+          "type": "string"
+        }
+      }
+    },
+    "borrower_info": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "BorrowerInfo",
+      "type": "object",
+      "required": [
+        "last_collateral_id"
+      ],
+      "properties": {
+        "last_collateral_id": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      },
+      "additionalProperties": false
+    },
+    "collateral_info": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CollateralResponse",
+      "type": "object",
+      "required": [
+        "borrower",
+        "collateral",
+        "loan_id"
+      ],
+      "properties": {
+        "borrower": {
+          "type": "string"
+        },
+        "collateral": {
+          "$ref": "#/definitions/CollateralInfo"
+        },
+        "loan_id": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "AssetInfo": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": [
+                "coin"
+              ],
+              "properties": {
+                "coin": {
+                  "$ref": "#/definitions/Coin"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": [
+                "cw20_coin"
+              ],
+              "properties": {
+                "cw20_coin": {
+                  "$ref": "#/definitions/Cw20Coin"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": [
+                "cw721_coin"
+              ],
+              "properties": {
+                "cw721_coin": {
+                  "$ref": "#/definitions/Cw721Coin"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": [
+                "cw1155_coin"
+              ],
+              "properties": {
+                "cw1155_coin": {
+                  "$ref": "#/definitions/Cw1155Coin"
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "Coin": {
+          "type": "object",
+          "required": [
+            "amount",
+            "denom"
+          ],
+          "properties": {
+            "amount": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "denom": {
+              "type": "string"
+            }
+          }
+        },
+        "CollateralInfo": {
+          "type": "object",
+          "required": [
+            "associated_assets",
+            "list_date",
+            "offer_amount",
+            "state"
+          ],
+          "properties": {
+            "active_offer": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "associated_assets": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/AssetInfo"
+              }
+            },
+            "comment": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "list_date": {
+              "$ref": "#/definitions/Timestamp"
+            },
+            "offer_amount": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "start_block": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "state": {
+              "$ref": "#/definitions/LoanState"
+            },
+            "terms": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/LoanTerms"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "Cw1155Coin": {
+          "type": "object",
+          "required": [
+            "address",
+            "token_id",
+            "value"
+          ],
+          "properties": {
+            "address": {
+              "type": "string"
+            },
+            "token_id": {
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/definitions/Uint128"
+            }
+          }
+        },
+        "Cw20Coin": {
+          "type": "object",
+          "required": [
+            "address",
+            "amount"
+          ],
+          "properties": {
+            "address": {
+              "type": "string"
+            },
+            "amount": {
+              "$ref": "#/definitions/Uint128"
+            }
+          }
+        },
+        "Cw721Coin": {
+          "type": "object",
+          "required": [
+            "address",
+            "token_id"
+          ],
+          "properties": {
+            "address": {
+              "type": "string"
+            },
+            "token_id": {
+              "type": "string"
+            }
+          }
+        },
+        "LoanState": {
+          "type": "string",
+          "enum": [
+            "published",
+            "started",
+            "defaulted",
+            "ended",
+            "asset_withdrawn"
+          ]
+        },
+        "LoanTerms": {
+          "type": "object",
+          "required": [
+            "duration_in_blocks",
+            "interest",
+            "principle"
+          ],
+          "properties": {
+            "duration_in_blocks": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "interest": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "principle": {
+              "$ref": "#/definitions/Coin"
+            }
+          },
+          "additionalProperties": false
+        },
+        "Timestamp": {
+          "description": "A point in time in nanosecond precision.\n\nThis type can represent times from 1970-01-01T00:00:00Z to 2554-07-21T23:34:33Z.\n\n## Examples\n\n``` # use cosmwasm_std::Timestamp; let ts = Timestamp::from_nanos(1_000_000_202); assert_eq!(ts.nanos(), 1_000_000_202); assert_eq!(ts.seconds(), 1); assert_eq!(ts.subsec_nanos(), 202);\n\nlet ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Uint64"
+            }
+          ]
+        },
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        },
+        "Uint64": {
+          "description": "A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u64` to get the value out:\n\n``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);\n\nlet b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```",
+          "type": "string"
+        }
+      }
+    },
+    "collaterals": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "MultipleCollateralsResponse",
+      "type": "object",
+      "required": [
+        "collaterals"
+      ],
+      "properties": {
+        "collaterals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CollateralResponse"
+          }
+        },
+        "next_collateral": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "AssetInfo": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": [
+                "coin"
+              ],
+              "properties": {
+                "coin": {
+                  "$ref": "#/definitions/Coin"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": [
+                "cw20_coin"
+              ],
+              "properties": {
+                "cw20_coin": {
+                  "$ref": "#/definitions/Cw20Coin"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": [
+                "cw721_coin"
+              ],
+              "properties": {
+                "cw721_coin": {
+                  "$ref": "#/definitions/Cw721Coin"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": [
+                "cw1155_coin"
+              ],
+              "properties": {
+                "cw1155_coin": {
+                  "$ref": "#/definitions/Cw1155Coin"
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "Coin": {
+          "type": "object",
+          "required": [
+            "amount",
+            "denom"
+          ],
+          "properties": {
+            "amount": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "denom": {
+              "type": "string"
+            }
+          }
+        },
+        "CollateralInfo": {
+          "type": "object",
+          "required": [
+            "associated_assets",
+            "list_date",
+            "offer_amount",
+            "state"
+          ],
+          "properties": {
+            "active_offer": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "associated_assets": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/AssetInfo"
+              }
+            },
+            "comment": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "list_date": {
+              "$ref": "#/definitions/Timestamp"
+            },
+            "offer_amount": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "start_block": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "state": {
+              "$ref": "#/definitions/LoanState"
+            },
+            "terms": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/LoanTerms"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "CollateralResponse": {
+          "type": "object",
+          "required": [
+            "borrower",
+            "collateral",
+            "loan_id"
+          ],
+          "properties": {
+            "borrower": {
+              "type": "string"
+            },
+            "collateral": {
+              "$ref": "#/definitions/CollateralInfo"
+            },
+            "loan_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          },
+          "additionalProperties": false
+        },
+        "Cw1155Coin": {
+          "type": "object",
+          "required": [
+            "address",
+            "token_id",
+            "value"
+          ],
+          "properties": {
+            "address": {
+              "type": "string"
+            },
+            "token_id": {
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/definitions/Uint128"
+            }
+          }
+        },
+        "Cw20Coin": {
+          "type": "object",
+          "required": [
+            "address",
+            "amount"
+          ],
+          "properties": {
+            "address": {
+              "type": "string"
+            },
+            "amount": {
+              "$ref": "#/definitions/Uint128"
+            }
+          }
+        },
+        "Cw721Coin": {
+          "type": "object",
+          "required": [
+            "address",
+            "token_id"
+          ],
+          "properties": {
+            "address": {
+              "type": "string"
+            },
+            "token_id": {
+              "type": "string"
+            }
+          }
+        },
+        "LoanState": {
+          "type": "string",
+          "enum": [
+            "published",
+            "started",
+            "defaulted",
+            "ended",
+            "asset_withdrawn"
+          ]
+        },
+        "LoanTerms": {
+          "type": "object",
+          "required": [
+            "duration_in_blocks",
+            "interest",
+            "principle"
+          ],
+          "properties": {
+            "duration_in_blocks": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "interest": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "principle": {
+              "$ref": "#/definitions/Coin"
+            }
+          },
+          "additionalProperties": false
+        },
+        "Timestamp": {
+          "description": "A point in time in nanosecond precision.\n\nThis type can represent times from 1970-01-01T00:00:00Z to 2554-07-21T23:34:33Z.\n\n## Examples\n\n``` # use cosmwasm_std::Timestamp; let ts = Timestamp::from_nanos(1_000_000_202); assert_eq!(ts.nanos(), 1_000_000_202); assert_eq!(ts.seconds(), 1); assert_eq!(ts.subsec_nanos(), 202);\n\nlet ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Uint64"
+            }
+          ]
+        },
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        },
+        "Uint64": {
+          "description": "A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u64` to get the value out:\n\n``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);\n\nlet b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```",
+          "type": "string"
+        }
+      }
+    },
+    "contract_info": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ContractInfo",
+      "type": "object",
+      "required": [
+        "fee_distributor",
+        "fee_rate",
+        "global_offer_index",
+        "name",
+        "owner"
+      ],
+      "properties": {
+        "fee_distributor": {
+          "type": "string"
+        },
+        "fee_rate": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "global_offer_index": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "name": {
+          "type": "string"
+        },
+        "owner": {
+          "$ref": "#/definitions/Addr"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Addr": {
+          "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
+          "type": "string"
+        },
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        }
+      }
+    },
+    "lender_offers": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "MultipleOffersResponse",
+      "type": "object",
+      "required": [
+        "offers"
+      ],
+      "properties": {
+        "next_offer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "offers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/OfferResponse"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Addr": {
+          "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
+          "type": "string"
+        },
+        "Coin": {
+          "type": "object",
+          "required": [
+            "amount",
+            "denom"
+          ],
+          "properties": {
+            "amount": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "denom": {
+              "type": "string"
+            }
+          }
+        },
+        "LoanTerms": {
+          "type": "object",
+          "required": [
+            "duration_in_blocks",
+            "interest",
+            "principle"
+          ],
+          "properties": {
+            "duration_in_blocks": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "interest": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "principle": {
+              "$ref": "#/definitions/Coin"
+            }
+          },
+          "additionalProperties": false
+        },
+        "OfferInfo": {
+          "type": "object",
+          "required": [
+            "borrower",
+            "lender",
+            "list_date",
+            "loan_id",
+            "offer_id",
+            "state",
+            "terms"
+          ],
+          "properties": {
+            "borrower": {
+              "$ref": "#/definitions/Addr"
+            },
+            "comment": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "deposited_funds": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Coin"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "lender": {
+              "$ref": "#/definitions/Addr"
+            },
+            "list_date": {
+              "$ref": "#/definitions/Timestamp"
+            },
+            "loan_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "offer_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "state": {
+              "$ref": "#/definitions/OfferState"
+            },
+            "terms": {
+              "$ref": "#/definitions/LoanTerms"
+            }
+          },
+          "additionalProperties": false
+        },
+        "OfferResponse": {
+          "type": "object",
+          "required": [
+            "global_offer_id",
+            "offer_info"
+          ],
+          "properties": {
+            "global_offer_id": {
+              "type": "string"
+            },
+            "offer_info": {
+              "$ref": "#/definitions/OfferInfo"
+            }
+          },
+          "additionalProperties": false
+        },
+        "OfferState": {
+          "type": "string",
+          "enum": [
+            "published",
+            "accepted",
+            "refused",
+            "cancelled"
+          ]
+        },
+        "Timestamp": {
+          "description": "A point in time in nanosecond precision.\n\nThis type can represent times from 1970-01-01T00:00:00Z to 2554-07-21T23:34:33Z.\n\n## Examples\n\n``` # use cosmwasm_std::Timestamp; let ts = Timestamp::from_nanos(1_000_000_202); assert_eq!(ts.nanos(), 1_000_000_202); assert_eq!(ts.seconds(), 1); assert_eq!(ts.subsec_nanos(), 202);\n\nlet ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Uint64"
+            }
+          ]
+        },
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        },
+        "Uint64": {
+          "description": "A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u64` to get the value out:\n\n``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);\n\nlet b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```",
+          "type": "string"
+        }
+      }
+    },
+    "offer_info": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "OfferResponse",
+      "type": "object",
+      "required": [
+        "global_offer_id",
+        "offer_info"
+      ],
+      "properties": {
+        "global_offer_id": {
+          "type": "string"
+        },
+        "offer_info": {
+          "$ref": "#/definitions/OfferInfo"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Addr": {
+          "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
+          "type": "string"
+        },
+        "Coin": {
+          "type": "object",
+          "required": [
+            "amount",
+            "denom"
+          ],
+          "properties": {
+            "amount": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "denom": {
+              "type": "string"
+            }
+          }
+        },
+        "LoanTerms": {
+          "type": "object",
+          "required": [
+            "duration_in_blocks",
+            "interest",
+            "principle"
+          ],
+          "properties": {
+            "duration_in_blocks": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "interest": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "principle": {
+              "$ref": "#/definitions/Coin"
+            }
+          },
+          "additionalProperties": false
+        },
+        "OfferInfo": {
+          "type": "object",
+          "required": [
+            "borrower",
+            "lender",
+            "list_date",
+            "loan_id",
+            "offer_id",
+            "state",
+            "terms"
+          ],
+          "properties": {
+            "borrower": {
+              "$ref": "#/definitions/Addr"
+            },
+            "comment": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "deposited_funds": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Coin"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "lender": {
+              "$ref": "#/definitions/Addr"
+            },
+            "list_date": {
+              "$ref": "#/definitions/Timestamp"
+            },
+            "loan_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "offer_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "state": {
+              "$ref": "#/definitions/OfferState"
+            },
+            "terms": {
+              "$ref": "#/definitions/LoanTerms"
+            }
+          },
+          "additionalProperties": false
+        },
+        "OfferState": {
+          "type": "string",
+          "enum": [
+            "published",
+            "accepted",
+            "refused",
+            "cancelled"
+          ]
+        },
+        "Timestamp": {
+          "description": "A point in time in nanosecond precision.\n\nThis type can represent times from 1970-01-01T00:00:00Z to 2554-07-21T23:34:33Z.\n\n## Examples\n\n``` # use cosmwasm_std::Timestamp; let ts = Timestamp::from_nanos(1_000_000_202); assert_eq!(ts.nanos(), 1_000_000_202); assert_eq!(ts.seconds(), 1); assert_eq!(ts.subsec_nanos(), 202);\n\nlet ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Uint64"
+            }
+          ]
+        },
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        },
+        "Uint64": {
+          "description": "A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u64` to get the value out:\n\n``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);\n\nlet b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```",
+          "type": "string"
+        }
+      }
+    },
+    "offers": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "MultipleOffersResponse",
+      "type": "object",
+      "required": [
+        "offers"
+      ],
+      "properties": {
+        "next_offer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "offers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/OfferResponse"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Addr": {
+          "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
+          "type": "string"
+        },
+        "Coin": {
+          "type": "object",
+          "required": [
+            "amount",
+            "denom"
+          ],
+          "properties": {
+            "amount": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "denom": {
+              "type": "string"
+            }
+          }
+        },
+        "LoanTerms": {
+          "type": "object",
+          "required": [
+            "duration_in_blocks",
+            "interest",
+            "principle"
+          ],
+          "properties": {
+            "duration_in_blocks": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "interest": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "principle": {
+              "$ref": "#/definitions/Coin"
+            }
+          },
+          "additionalProperties": false
+        },
+        "OfferInfo": {
+          "type": "object",
+          "required": [
+            "borrower",
+            "lender",
+            "list_date",
+            "loan_id",
+            "offer_id",
+            "state",
+            "terms"
+          ],
+          "properties": {
+            "borrower": {
+              "$ref": "#/definitions/Addr"
+            },
+            "comment": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "deposited_funds": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Coin"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "lender": {
+              "$ref": "#/definitions/Addr"
+            },
+            "list_date": {
+              "$ref": "#/definitions/Timestamp"
+            },
+            "loan_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "offer_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "state": {
+              "$ref": "#/definitions/OfferState"
+            },
+            "terms": {
+              "$ref": "#/definitions/LoanTerms"
+            }
+          },
+          "additionalProperties": false
+        },
+        "OfferResponse": {
+          "type": "object",
+          "required": [
+            "global_offer_id",
+            "offer_info"
+          ],
+          "properties": {
+            "global_offer_id": {
+              "type": "string"
+            },
+            "offer_info": {
+              "$ref": "#/definitions/OfferInfo"
+            }
+          },
+          "additionalProperties": false
+        },
+        "OfferState": {
+          "type": "string",
+          "enum": [
+            "published",
+            "accepted",
+            "refused",
+            "cancelled"
+          ]
+        },
+        "Timestamp": {
+          "description": "A point in time in nanosecond precision.\n\nThis type can represent times from 1970-01-01T00:00:00Z to 2554-07-21T23:34:33Z.\n\n## Examples\n\n``` # use cosmwasm_std::Timestamp; let ts = Timestamp::from_nanos(1_000_000_202); assert_eq!(ts.nanos(), 1_000_000_202); assert_eq!(ts.seconds(), 1); assert_eq!(ts.subsec_nanos(), 202);\n\nlet ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Uint64"
+            }
+          ]
+        },
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        },
+        "Uint64": {
+          "description": "A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u64` to get the value out:\n\n``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);\n\nlet b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```",
+          "type": "string"
+        }
+      }
+    }
+  }
+}

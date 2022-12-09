@@ -825,7 +825,6 @@ pub mod tests {
                     Attribute::new("action", "modify_parameter"),
                     Attribute::new("name", "nfts_wanted"),
                     Attribute::new("operation_type", "add"),
-                    Attribute::new("value", "nft1,nft2"),
                     Attribute::new("trade_id", "0"),
                     Attribute::new("trader", "creator")
                 ]
