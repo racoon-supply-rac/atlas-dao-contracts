@@ -1,9 +1,9 @@
 use crate::state::{is_owner, CONTRACT_INFO};
-use anyhow::{Result, bail};
-use cosmwasm_std::{DepsMut, Env, MessageInfo, Response, Decimal, StdError};
+use anyhow::Result;
+use cosmwasm_std::{DepsMut, Env, MessageInfo, Response, Uint128};
 
 /// Owner only function
-/// Proposes a new contract owner
+/// Sets a new owner
 /// The owner can set the parameters of the contract
 /// * Owner
 /// * Fee distributor contract
@@ -16,30 +16,14 @@ pub fn set_owner(
 ) -> Result<Response> {
     let mut contract_info = is_owner(deps.storage, info.sender)?;
 
-    contract_info.owner = contract_info.owner.propose_new_owner(deps.api.addr_validate(&new_owner)?);
+    let new_owner = deps.api.addr_validate(&new_owner)?;
+    contract_info.owner = new_owner.clone();
     CONTRACT_INFO.save(deps.storage, &contract_info)?;
 
     Ok(Response::default()
-        .add_attribute("action", "proposed new owner")
-        .add_attribute("proposed owner", new_owner))
-}
-
-/// Claim ownership of the contract
-pub fn claim_ownership(
-    deps: DepsMut,
-    _env: Env,
-    info: MessageInfo,
-) -> Result<Response> {
-
-    let mut contract_info = CONTRACT_INFO.load(deps.storage)?;
-
-    contract_info.owner = contract_info.owner.validate_new_owner(info)?;
-
-    CONTRACT_INFO.save(deps.storage, &contract_info)?;
-
-    Ok(Response::default()
-        .add_attribute("action", "claimed contract ownership")
-        .add_attribute("new owner", contract_info.owner.owner))
+        .add_attribute("action", "changed-contract-parameter")
+        .add_attribute("parameter", "owner")
+        .add_attribute("value", new_owner))
 }
 
 /// Owner only function
@@ -53,7 +37,7 @@ pub fn set_fee_distributor(
 ) -> Result<Response> {
     let mut contract_info = is_owner(deps.storage, info.sender)?;
 
-    contract_info.fee_distributor = deps.api.addr_validate(&new_distributor)?;
+    contract_info.fee_distributor = new_distributor.clone();
     CONTRACT_INFO.save(deps.storage, &contract_info)?;
 
     Ok(Response::default()
@@ -70,21 +54,15 @@ pub fn set_fee_rate(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    new_fee_rate: Decimal
+    new_fee_rate: Uint128,
 ) -> Result<Response> {
     let mut contract_info = is_owner(deps.storage, info.sender)?;
 
-    // Check the fee distribution
-    if new_fee_rate >= Decimal::one(){
-        bail!(StdError::generic_err(
-            "The Fee rate should be lower than 1"
-        ))
-    }
     contract_info.fee_rate = new_fee_rate;
     CONTRACT_INFO.save(deps.storage, &contract_info)?;
 
     Ok(Response::new()
         .add_attribute("action", "changed-contract-parameter")
         .add_attribute("parameter", "fee_rate")
-        .add_attribute("value", new_fee_rate.to_string()))
+        .add_attribute("value", new_fee_rate))
 }

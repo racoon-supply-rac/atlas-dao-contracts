@@ -1,16 +1,9 @@
-use cosmwasm_std::QueryRequest;
-use cosmwasm_std::to_binary;
-use cosmwasm_std::Addr;
-use crate::error::ContractError;
-use crate::state::get_actual_state;
 use crate::state::get_offer;
 use crate::state::lender_offers;
 use crate::state::BORROWER_INFO;
 use crate::state::COLLATERAL_INFO;
 use cosmwasm_std::StdError;
-use cosmwasm_std::{Deps, Order, StdResult, WasmQuery};
-use cw721::Cw721QueryMsg;
-use cw721::{OwnerOfResponse};
+use cosmwasm_std::{Deps, Order, StdResult};
 use cw_storage_plus::Bound;
 use nft_loans_export::msg::CollateralResponse;
 use nft_loans_export::msg::MultipleCollateralsAllResponse;
@@ -23,11 +16,12 @@ use nft_loans_export::state::CollateralInfo;
 use nft_loans_export::state::ContractInfo;
 
 use crate::state::CONTRACT_INFO;
-use anyhow::{anyhow, Result, bail};
+use anyhow::{anyhow, Result};
 // settings for pagination
 const MAX_QUERY_LIMIT: u32 = 150;
 const DEFAULT_QUERY_LIMIT: u32 = 10;
 
+// TODO we need more queries, to query loan by user
 pub fn query_contract_info(deps: Deps) -> Result<ContractInfo> {
     CONTRACT_INFO.load(deps.storage).map_err(|err| anyhow!(err))
 }
@@ -142,18 +136,11 @@ pub fn query_offers(
         .prefix((borrower, loan_id))
         .range(deps.storage, None, start, Order::Descending)
         .map(|x| {
-            match x{
-                Ok((key, mut offer_info))=> {
-                    offer_info.state = get_actual_state(&offer_info, deps.storage)?;
-                    Ok(
-                        OfferResponse {
-                            offer_info,
-                            global_offer_id: key,
-                        }
-                    )
-                },
-                Err(err) => bail!(err)
-            }
+            x.map(|(key, offer_info)| OfferResponse {
+                offer_info,
+                global_offer_id: key,
+            })
+            .map_err(|err| anyhow!(err))
         })
         .take(limit)
         .collect::<Result<Vec<OfferResponse>>>()?;
@@ -193,17 +180,4 @@ pub fn query_lender_offers(
         next_offer: offers.last().map(|last| last.global_offer_id.clone()),
         offers,
     })
-}
-
-pub fn is_nft_owner(deps: Deps, sender: Addr, nft_address: String, token_id: String) -> Result<()>{
-
-    let owner_response: OwnerOfResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: nft_address,
-            msg: to_binary(&Cw721QueryMsg::OwnerOf { token_id, include_expired: None })?,
-        }))?;
-
-    if owner_response.owner != sender{
-        bail!(ContractError::SenderNotOwner{})
-    }
-    Ok(())
 }

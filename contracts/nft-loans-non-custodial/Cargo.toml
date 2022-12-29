@@ -43,6 +43,3 @@ fee-contract-export = { path = "../../packages/fee_contract", version = "0.1.0" 
 
 [dev-dependencies]
 cosmwasm-schema = { version = "1.0.0" }
-
-[profile.release]
-overflow-checks = true

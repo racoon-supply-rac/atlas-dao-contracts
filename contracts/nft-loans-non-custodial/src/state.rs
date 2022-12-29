@@ -25,7 +25,7 @@ pub const COLLATERAL_INFO: Map<(Addr, u64), CollateralInfo> = Map::new("collater
 pub const BORROWER_INFO: Map<&Addr, BorrowerInfo> = Map::new("borrower_info");
 
 /// Complicated Offer saving structure.
-/// We created this structure to be able to query lender offers by 3 different indices :
+/// We created this structure to be able to query lender offers by 3 different indices : 
 /// By lender
 /// By borrower <-- This one is not used for now be we keep it for later, if needed to get all offers made by borrower
 /// By loan (borrower + loan_id)
@@ -37,7 +37,8 @@ pub struct LenderOfferIndexes<'a> {
 
 impl<'a> IndexList<OfferInfo> for LenderOfferIndexes<'a> {
     fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<OfferInfo>> + '_> {
-        let v: Vec<&dyn Index<OfferInfo>> = vec![&self.lender, &self.borrower, &self.loan];
+        let v: Vec<&dyn Index<OfferInfo>> =
+            vec![&self.lender, &self.borrower, &self.loan];
         Box::new(v.into_iter())
     }
 }
@@ -58,14 +59,14 @@ pub fn lender_offers<'a>() -> IndexedMap<'a, &'a str, OfferInfo, LenderOfferInde
             |d: &OfferInfo| (d.borrower.clone(), d.loan_id),
             "lender_offers",
             "lender_offers__collateral",
-        ),
+        )
     };
     IndexedMap::new("lender_offers", indexes)
 }
 
 pub fn is_owner(storage: &dyn Storage, sender: Addr) -> Result<ContractInfo> {
     let contract_info = CONTRACT_INFO.load(storage)?;
-    if sender == contract_info.owner.owner {
+    if sender == contract_info.owner {
         Ok(contract_info)
     } else {
         bail!(ContractError::Unauthorized {})
@@ -97,14 +98,6 @@ pub fn is_loan_counterable(collateral: &CollateralInfo) -> Result<()> {
     match collateral.state {
         LoanState::Published => Ok(()),
         _ => bail!(ContractError::NotCounterable {}),
-    }
-}
-
-pub fn is_offer_refusable(collateral: &CollateralInfo, offer_info: &OfferInfo) -> Result<()> {
-    is_loan_counterable(collateral).map_err(|_| ContractError::NotRefusable {  })?;
-    match offer_info.state {
-        OfferState::Published => Ok(()),
-        _ => bail!(ContractError::NotRefusable {}),
     }
 }
 
@@ -198,20 +191,12 @@ pub fn get_offer(storage: &dyn Storage, global_offer_id: &str) -> Result<OfferIn
     let mut offer_info = lender_offers()
         .load(storage, global_offer_id)
         .map_err(|_| ContractError::OfferNotFound {})?;
-
-    offer_info.state = get_actual_state(&offer_info, storage)?;
-
-    Ok(offer_info)
-}
-
-pub fn get_actual_state(offer_info: &OfferInfo, storage: &dyn Storage) -> Result<OfferState>{
     let collateral_info =
         COLLATERAL_INFO.load(storage, (offer_info.borrower.clone(), offer_info.loan_id))?;
 
     // We check the status of the offer.
     // A refused offer isn't marked as such but depends on the overlying collateral info state
-    Ok(
-        match &offer_info.state {
+    offer_info.state = match &offer_info.state {
         OfferState::Published => {
             if collateral_info.state != LoanState::Published {
                 OfferState::Refused
@@ -219,8 +204,8 @@ pub fn get_actual_state(offer_info: &OfferInfo, storage: &dyn Storage) -> Result
                 OfferState::Published
             }
         }
-        _ => offer_info.state.clone(),
-    })
+        _ => offer_info.state,
+    };
+
+    Ok(offer_info)
 }
-
-

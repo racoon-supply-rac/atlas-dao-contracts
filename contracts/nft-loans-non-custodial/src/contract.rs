@@ -1,16 +1,3 @@
-
-#[cfg(not(feature = "library"))]
-use anyhow::{anyhow, Result};
-use cosmwasm_std::{entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response};
-
-use serde::Serialize;
-use utils::state::OwnerStruct;
-
-use nft_loans_export::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
-use nft_loans_export::state::ContractInfo;
-
-use crate::admin::{set_fee_distributor, set_fee_rate, set_owner};
-use crate::admin::claim_ownership;
 use crate::execute::accept_loan;
 use crate::execute::accept_offer;
 use crate::execute::cancel_offer;
@@ -22,6 +9,17 @@ use crate::execute::repay_borrowed_funds;
 use crate::execute::withdraw_collateral;
 use crate::execute::withdraw_defaulted_loan;
 use crate::execute::withdraw_refused_offer;
+
+#[cfg(not(feature = "library"))]
+use anyhow::{anyhow, Result};
+use cosmwasm_std::{entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response};
+
+use serde::Serialize;
+
+use nft_loans_export::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
+use nft_loans_export::state::ContractInfo;
+
+use crate::admin::{set_fee_distributor, set_fee_rate, set_owner};
 
 use crate::query::{
     query_all_collaterals, query_borrower_info, query_collateral_info, query_collaterals,
@@ -36,16 +34,15 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response> {
-    // Verify the contract name and the sent fee rates
+    // Verify the contract name
     msg.validate()?;
     // store token info
     let data = ContractInfo {
         name: msg.name,
-        owner: OwnerStruct::new(
-            deps
-                .api
-                .addr_validate(&msg.owner.unwrap_or_else(|| info.sender.to_string()))?),
-        fee_distributor: deps.api.addr_validate(&msg.fee_distributor)?,
+        owner: deps
+            .api
+            .addr_validate(&msg.owner.unwrap_or_else(|| info.sender.to_string()))?,
+        fee_distributor: msg.fee_distributor,
         fee_rate: msg.fee_rate,
         global_offer_index: 0,
     };
@@ -109,7 +106,6 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> R
 
         // Internal Contract Logic
         ExecuteMsg::SetOwner { owner } => set_owner(deps, env, info, owner),
-        ExecuteMsg::ClaimOwnership { } => claim_ownership(deps, env, info),
 
         ExecuteMsg::SetFeeDistributor { fee_depositor } => {
             set_fee_distributor(deps, env, info, fee_depositor)

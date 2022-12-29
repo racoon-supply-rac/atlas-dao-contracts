@@ -1,9 +1,8 @@
-use crate::query::is_nft_owner;
 use crate::error::ContractError;
 use anyhow::{bail, Result};
 
 use cosmwasm_std::{
-    coins, Addr, BankMsg, CosmosMsg, DepsMut, Env, MessageInfo, Response, Storage, Decimal,
+    coins, Addr, BankMsg, CosmosMsg, DepsMut, Env, MessageInfo, Response, Storage, Uint128,
 };
 
 use cw1155::Cw1155ExecuteMsg;
@@ -22,8 +21,7 @@ use fee_distributor_export::msg::ExecuteMsg as FeeDistributorMsg;
 use crate::state::{
     can_repay_loan, get_active_loan, get_offer, is_active_lender, is_collateral_withdrawable,
     is_lender, is_loan_acceptable, is_loan_counterable, is_loan_defaulted, is_loan_modifiable,
-    is_offer_borrower, is_offer_refusable, lender_offers, save_offer, BORROWER_INFO,
-    COLLATERAL_INFO, CONTRACT_INFO,
+    is_offer_borrower, lender_offers, save_offer, BORROWER_INFO, COLLATERAL_INFO, CONTRACT_INFO,
 };
 
 /// Signals the deposit of multiple collaterals in the same loan.
@@ -48,11 +46,6 @@ pub fn deposit_collaterals(
     // We can't verify the user has given the contract authorization to transfer their tokens.
     // (because the cw721 standard has changed the messages are always not the same for all cw721 nfts)
     // But we don't actually need it, we will need to secure the frontend to avoid user frustration
-
-    // First we validate at least one asset was provided to the raffle (or else this is useless, we want the raffles to include NFTs)
-    if tokens.is_empty(){
-        bail!(ContractError::NoAssets {  })
-    }
 
     // We save the collateral info in our internal structure
     // First we update the number of collateral a user has deposited (to make sure the id assigned is unique)
@@ -263,7 +256,7 @@ pub fn cancel_offer(
     is_loan_modifiable(&collateral)?;
 
     // The funds deposited for lending are withdrawn
-    let withdraw_response = _withdraw_offer_unsafe(lender.clone(), &offer_info)?;
+    let withdraw_response = _withdraw_offer_unsafe(deps.storage, lender.clone(), &global_offer_id)?;
 
     offer_info.state = OfferState::Cancelled;
     offer_info.deposited_funds = None;
@@ -300,7 +293,7 @@ pub fn withdraw_refused_offer(
     }
 
     // The funds deposited for lending are withdrawn
-    let withdraw_message = _withdraw_offer_unsafe(lender.clone(), &offer_info)?;
+    let withdraw_message = _withdraw_offer_unsafe(deps.storage, lender.clone(), &global_offer_id)?;
 
     offer_info.deposited_funds = None;
     save_offer(deps.storage, &global_offer_id, offer_info.clone())?;
@@ -319,13 +312,16 @@ pub fn withdraw_refused_offer(
 /// This function does not do any checks on the validity of the procedure
 /// Be careful when using this internal function
 pub fn _withdraw_offer_unsafe(
+    storage: &dyn Storage,
     recipient: Addr,
-    offer_info: &OfferInfo
+    global_offer_id: &str,
 ) -> Result<BankMsg> {
+    // We query the loan info
+    let offer_info = get_offer(storage, global_offer_id)?;
 
     // We get the funds to withdraw
     let funds_to_withdraw = offer_info
-        .deposited_funds.clone()
+        .deposited_funds
         .ok_or(ContractError::NoFundsToWithdraw {})?;
 
     Ok(BankMsg::Send {
@@ -335,12 +331,8 @@ pub fn _withdraw_offer_unsafe(
 }
 
 /// Refuse an offer to a borrowers collateral
-/// This is needed only for printing and db procedure, and not actually needed in the flow.
-/// This however blocks other interactions with the offer (except withdrawing the funds).
-/// (Audit results)
-/// We need to make sure the owner can only refuse an offer, when :
-/// 1. They are still accepting offer (LoanState::Published)
-/// 2. The offer is still published
+/// This is needed only for printing and db procedure, and not actually needed in the flow
+/// This however blocks other interactions with the offer (except withdrawing the funds)
 pub fn refuse_offer(
     deps: DepsMut,
     _env: Env,
@@ -350,17 +342,8 @@ pub fn refuse_offer(
     // We query the loan info
     let borrower = info.sender;
 
-    // We load the offer and collateral info
-    let mut offer_info = is_offer_borrower(deps.storage, borrower.clone(), &global_offer_id)?;
-    let collateral = COLLATERAL_INFO.load(
-        deps.storage,
-        (offer_info.clone().borrower, offer_info.loan_id),
-    )?;
-
-    // Check the owner can indeed refuse the offer
-    is_offer_refusable(&collateral, &offer_info)?;
-
     // Mark the offer as refused
+    let mut offer_info = is_offer_borrower(deps.storage, borrower.clone(), &global_offer_id)?;
     offer_info.state = OfferState::Refused;
     save_offer(deps.storage, &global_offer_id, offer_info.clone())?;
 
@@ -398,7 +381,7 @@ pub fn accept_loan(
     )?;
 
     // Then we make the borrower accept the loan
-    let res = _accept_offer_raw(deps, env, global_offer_id.clone())?;
+    let res = _accept_offer_raw(deps.storage, env, global_offer_id.clone())?;
 
     Ok(res
         .add_attribute("action", "start-loan")
@@ -412,15 +395,15 @@ pub fn accept_loan(
 
 /// Accepts an offer without any owner checks
 fn _accept_offer_raw(
-    deps: DepsMut,
+    storage: &mut dyn Storage,
     env: Env,
     global_offer_id: String,
 ) -> Result<Response> {
-    let mut offer_info = get_offer(deps.storage, &global_offer_id)?;
+    let mut offer_info = get_offer(storage, &global_offer_id)?;
 
     let borrower = offer_info.borrower.clone();
     let loan_id = offer_info.loan_id;
-    let mut collateral = COLLATERAL_INFO.load(deps.storage, (borrower.clone(), loan_id))?;
+    let mut collateral = COLLATERAL_INFO.load(storage, (borrower.clone(), loan_id))?;
     is_loan_acceptable(&collateral)?;
 
     // We verify the offer is still valid
@@ -431,8 +414,8 @@ fn _accept_offer_raw(
         collateral.active_offer = Some(global_offer_id.clone());
         offer_info.state = OfferState::Accepted;
 
-        COLLATERAL_INFO.save(deps.storage, (borrower.clone(), loan_id), &collateral)?;
-        save_offer(deps.storage, &global_offer_id, offer_info.clone())?;
+        COLLATERAL_INFO.save(storage, (borrower.clone(), loan_id), &collateral)?;
+        save_offer(storage, &global_offer_id, offer_info.clone())?;
     } else {
         bail!(ContractError::WrongOfferState {
             state: offer_info.state,
@@ -440,28 +423,21 @@ fn _accept_offer_raw(
     };
 
     // We transfer the funds directly when the offer is accepted
-    let fund_messages = _withdraw_offer_unsafe(borrower.clone(), &offer_info)?;
+    let fund_messages = _withdraw_offer_unsafe(storage, borrower.clone(), &global_offer_id)?;
 
     // We transfer the nfts directly from the owner's wallets when the offer is accepted
     let asset_messages: Vec<CosmosMsg> = collateral
         .associated_assets
         .iter()
         .map(|token| match token {
-            AssetInfo::Cw721Coin(Cw721Coin { address, token_id }) => {
-                // (Audit results)
-                // Before transferring the NFT, we make sure the current NFT owner is indeed the borrower of funds
-                // Otherwise, this would cause anyone to be able to create loans in the name of the owner if a bad approval was done
-                is_nft_owner(deps.as_ref(), borrower.clone(), address.to_string(), token_id.to_string())?;
-
-                Ok(into_cosmos_msg(
-                    Cw721ExecuteMsg::TransferNft {
-                        recipient: env.contract.address.clone().into(),
-                        token_id: token_id.to_string(),
-                    },
-                    address,
-                    None,
-                )?)
-            },
+            AssetInfo::Cw721Coin(Cw721Coin { address, token_id }) => Ok(into_cosmos_msg(
+                Cw721ExecuteMsg::TransferNft {
+                    recipient: env.contract.address.clone().into(),
+                    token_id: token_id.to_string(),
+                },
+                address,
+                None,
+            )?),
             AssetInfo::Cw1155Coin(Cw1155Coin {
                 address,
                 token_id,
@@ -508,7 +484,7 @@ pub fn accept_offer(
     is_offer_borrower(deps.storage, info.sender, &global_offer_id)?;
 
     // We accept the offer
-    _accept_offer_raw(deps, env, global_offer_id)
+    _accept_offer_raw(deps.storage, env, global_offer_id)
 }
 
 /// Repay Borrowed funds and get back your collateral
@@ -548,7 +524,8 @@ pub fn repay_borrowed_funds(
 
     // We prepare the funds to send back to the lender
     let lender_payback = offer_info.terms.principle.amount
-        + interests * (Decimal::one() - contract_info.fee_rate);
+        + interests * (Uint128::new(100_000u128) - contract_info.fee_rate)
+            / Uint128::new(100_000u128);
 
     // And the funds to send to the fee_depositor contract
     let fee_depositor_payback = info.funds[0].amount - lender_payback;
@@ -564,25 +541,20 @@ pub fn repay_borrowed_funds(
         })
         .collect::<Result<Vec<String>>>()?;
 
-    let mut res = Response::new();
-    // We get the funds back to the lender
-    if lender_payback.u128() > 0u128{
-        res = res.add_message(BankMsg::Send {
+    Ok(Response::new()
+        // We get the funds back to the lender
+        .add_message(BankMsg::Send {
             to_address: offer_info.lender.to_string(),
             amount: coins(lender_payback.u128(), info.funds[0].denom.clone()),
         })
-    }
-
-    // And the collateral back to the borrower*
-    res = res.add_messages(_withdraw_loan(
+        // And the collateral back to the borrower
+        .add_messages(_withdraw_loan(
             collateral.clone(),
             env.contract.address,
             borrower.clone(),
-        )?);
-
-    // And we pay the fee to the treasury
-    if fee_depositor_payback.u128() > 0u128 {
-        res = res.add_message(into_cosmos_msg(
+        )?)
+        // And we pay the fee to the treasury
+        .add_message(into_cosmos_msg(
             FeeDistributorMsg::DepositFees {
                 addresses: collateral_addresses,
                 fee_type: FeeType::Funds,
@@ -592,10 +564,7 @@ pub fn repay_borrowed_funds(
                 fee_depositor_payback.u128(),
                 info.funds[0].denom.clone(),
             )),
-        )?);
-    }
-
-    Ok(res
+        )?)
         .add_attribute("action", "repay-loan")
         .add_attribute("borrower", borrower)
         .add_attribute("lender", offer_info.lender)

@@ -27,7 +27,5 @@ drand-verify = "0.1"
 raffles-export = { path = "../../packages/raffles", version = "0.1.0" }
 
 [dev-dependencies]
+cosmwasm-schema = { version = "1.0.0" }
 rustc-serialize = "0.3.24"
-
-[profile.release]
-overflow-checks = true

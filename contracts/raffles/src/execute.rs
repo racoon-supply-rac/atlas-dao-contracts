@@ -1,4 +1,3 @@
-use crate::query::is_nft_owner;
 use crate::state::{
     assert_randomness_origin_and_order, can_buy_ticket, get_raffle_owner_finished_messages,
     get_raffle_owner_messages, get_raffle_state, get_raffle_winner, get_raffle_winner_messages,
@@ -7,7 +6,7 @@ use crate::state::{
 use anyhow::{anyhow, bail, Result};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{
-    from_binary, Addr, CosmosMsg, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
+    from_binary, Addr, Binary, CosmosMsg, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
 };
 
 use crate::error::ContractError;
@@ -16,7 +15,7 @@ use raffles_export::state::{
 };
 
 use cw1155::Cw1155ExecuteMsg;
-use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
+use cw20::Cw20ExecuteMsg;
 use cw721::Cw721ExecuteMsg;
 use raffles_export::msg::{into_cosmos_msg, DrandRandomness, ExecuteMsg};
 
@@ -58,23 +57,11 @@ pub fn execute_create_raffle(
         bail!(ContractError::ContractIsLocked {});
     }
 
-    // First we validate at least one asset was provided to the raffle (or else this is useless, we want the raffles to include NFTs)
-    if all_assets.is_empty(){
-        bail!(ContractError::NoAssets {  })
-    }
-
-
-    // Then we physcially transfer all the assets
+    // First we physcially transfer all the assets
     let transfer_messages: Vec<CosmosMsg> = all_assets
         .iter()
         .map(|asset| match &asset {
             AssetInfo::Cw721Coin(token) => {
-
-                // (Audit results)
-                // Before transferring the NFT, we make sure the current NFT owner is indeed the borrower of funds
-                // Otherwise, this would cause anyone to be able to create loans in the name of the owner if a bad approval was done
-                is_nft_owner(deps.as_ref(), info.sender.clone(), token.address.to_string(), token.token_id.to_string())?;
-
                 let message = Cw721ExecuteMsg::TransferNft {
                     recipient: env.contract.address.clone().into(),
                     token_id: token.token_id.clone(),
@@ -172,16 +159,6 @@ pub fn execute_cancel_raffle(
 ) -> Result<Response> {
     let mut raffle_info = is_raffle_owner(deps.storage, raffle_id, info.sender)?;
 
-    // The raffle can only be cancelled if it wasn't previously cancelled and it isn't finished
-    let raffle_state = get_raffle_state(env.clone(), raffle_info.clone());
-
-    if raffle_state != RaffleState::Created && 
-        raffle_state != RaffleState::Started && 
-        raffle_state != RaffleState::Closed && 
-        raffle_state != RaffleState::Finished{
-        bail!(ContractError::WrongStateForCancel { status: raffle_state })
-    }
-
     // We then verify there are not tickets bought
     if raffle_info.number_of_tickets != 0 {
         bail!(ContractError::RaffleAlreadyStarted {});
@@ -265,7 +242,12 @@ pub fn execute_buy_tickets(
         }
         // or verify the sent coins match the message coins
         AssetInfo::Coin(coin) => {
-            if coin.amount != Uint128::zero() && (info.funds.len() != 1 || info.funds[0].denom != coin.denom || info.funds[0].amount != coin.amount){
+            if coin.amount != Uint128::zero() && info.funds.len() != 1 {
+                bail!(ContractError::AssetMismatch {});
+            }
+            if coin.amount != Uint128::zero() && info.funds[0].denom != coin.denom
+                || info.funds[0].amount != coin.amount
+            {
                 bail!(ContractError::AssetMismatch {});
             }
             vec![]
@@ -298,10 +280,12 @@ pub fn execute_receive(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    wrapper: Cw20ReceiveMsg
+    sender: String,
+    amount: Uint128,
+    msg: Binary,
 ) -> Result<Response> {
-    let sender = deps.api.addr_validate(&wrapper.sender)?;
-    match from_binary(&wrapper.msg)? {
+    let sender = deps.api.addr_validate(&sender)?;
+    match from_binary(&msg)? {
         ExecuteMsg::BuyTicket {
             raffle_id,
             ticket_number,
@@ -314,7 +298,7 @@ pub fn execute_receive(
                     amount: amount_received,
                 }) => {
                     if deps.api.addr_validate(&address_received)? == info.sender
-                        && amount_received == wrapper.amount
+                        && amount_received == amount
                     {
                         // The asset is a match, we can create the raffle object and return
                         _buy_tickets(

@@ -1,4 +1,3 @@
-use std::str::FromStr;
 use crate::contract::execute;
 use crate::contract::instantiate;
 use crate::error::ContractError;
@@ -9,12 +8,9 @@ use anyhow::Result;
 use cosmwasm_std::{
     coin, coins,
     testing::{mock_dependencies, mock_env, mock_info},
-    Api, BankMsg, Coin, DepsMut, Env, Response, SubMsg, Uint128, Decimal
+    Api, BankMsg, Coin, DepsMut, Env, Response, SubMsg, Uint128,
 };
 use cw1155::Cw1155ExecuteMsg;
-
-use utils::state::OwnerStruct;
-
 use fee_contract_export::state::FeeType;
 use fee_distributor_export::msg::ExecuteMsg as FeeDistributorMsg;
 use nft_loans_export::msg::ExecuteMsg;
@@ -28,7 +24,6 @@ use utils::msg::into_cosmos_msg;
 use utils::state::AssetInfo;
 use utils::state::Cw1155Coin;
 use utils::state::Cw721Coin;
-use crate::testing::mock_querier::{mock_dependencies as mock_querier_dependencies};
 
 pub fn assert_error(err: anyhow::Error, contract_error: ContractError) {
     assert_eq!(err.downcast::<ContractError>().unwrap(), contract_error)
@@ -38,8 +33,8 @@ pub fn init_helper(deps: DepsMut) {
     let instantiate_msg = InstantiateMsg {
         name: "nft-loan".to_string(),
         owner: None,
-        fee_distributor: "fee_distributor".to_string(),
-        fee_rate: Decimal::from_str("0.05").unwrap(),
+        fee_distributor: "T".to_string(),
+        fee_rate: Uint128::new(5_000u128),
     };
     let info = mock_info("creator", &[]);
     let env = mock_env();
@@ -53,8 +48,8 @@ fn test_init_sanity() {
     let instantiate_msg = InstantiateMsg {
         name: "p2p-trading".to_string(),
         owner: Some("this_address".to_string()),
-        fee_distributor: "fee_distributor".to_string(),
-        fee_rate: Decimal::from_str("0.05").unwrap(),
+        fee_distributor: "T".to_string(),
+        fee_rate: Uint128::new(5_000u128),
     };
     let info = mock_info("owner", &[]);
     let env = mock_env();
@@ -67,9 +62,9 @@ fn test_init_sanity() {
         contract,
         ContractInfo {
             name: "p2p-trading".to_string(),
-            owner: OwnerStruct::new(deps.api.addr_validate("this_address").unwrap()),
-            fee_distributor: deps.api.addr_validate("fee_distributor").unwrap(),
-            fee_rate: Decimal::from_str("0.05").unwrap(),
+            owner: deps.api.addr_validate("this_address").unwrap(),
+            fee_distributor: "T".to_string(),
+            fee_rate: Uint128::new(5_000u128),
             global_offer_index: 0
         }
     );
@@ -81,13 +76,13 @@ fn test_init_sanity() {
         env.clone(),
         info.clone(),
         ExecuteMsg::SetFeeDistributor {
-            fee_depositor: "new_fee_distributor".to_string(),
+            fee_depositor: "S".to_string(),
         },
     )
     .unwrap();
     assert_eq!(
         CONTRACT_INFO.load(&deps.storage).unwrap().fee_distributor,
-        "new_fee_distributor".to_string()
+        "S".to_string()
     );
 
     let unauthorized = execute(
@@ -95,7 +90,7 @@ fn test_init_sanity() {
         env.clone(),
         bad_info.clone(),
         ExecuteMsg::SetFeeDistributor {
-            fee_depositor: "new_fee_distributor".to_string(),
+            fee_depositor: "S".to_string(),
         },
     )
     .unwrap_err();
@@ -125,25 +120,7 @@ fn test_init_sanity() {
     .unwrap();
     assert_eq!(
         CONTRACT_INFO.load(&deps.storage).unwrap().owner,
-        OwnerStruct{
-            owner: deps.api.addr_validate("this_address").unwrap(),
-            new_owner: Some(deps.api.addr_validate("new_owner").unwrap()),
-        }
-    );
-    // Now the new address claims the contract
-    execute(
-        deps.as_mut(),
-        env.clone(),
-        mock_info("new_owner", &[]),
-        ExecuteMsg::ClaimOwnership {  }
-    )
-    .unwrap();
-    assert_eq!(
-        CONTRACT_INFO.load(&deps.storage).unwrap().owner,
-        OwnerStruct{
-            owner: deps.api.addr_validate("new_owner").unwrap(),
-            new_owner: None
-        }
+        "new_owner".to_string()
     );
 
     let info = mock_info("new_owner", &[]);
@@ -153,7 +130,7 @@ fn test_init_sanity() {
         env.clone(),
         bad_info,
         ExecuteMsg::SetFeeRate {
-            fee_rate: Decimal::from_str("0.005").unwrap(),
+            fee_rate: Uint128::new(500u128),
         },
     )
     .unwrap_err();
@@ -164,13 +141,13 @@ fn test_init_sanity() {
         env,
         info,
         ExecuteMsg::SetFeeRate {
-            fee_rate: Decimal::from_str("0.005").unwrap(),
+            fee_rate: Uint128::new(500u128),
         },
     )
     .unwrap();
     assert_eq!(
         CONTRACT_INFO.load(&deps.storage).unwrap().fee_rate,
-        Decimal::from_str("0.005").unwrap(),
+        Uint128::new(500u128)
     );
 }
 
@@ -522,13 +499,7 @@ fn test_withdraw_collateral() {
 
 #[test]
 fn test_accept_loan() {
-    let mut deps = mock_querier_dependencies(&[]);
-    deps.querier
-        .with_owner_of(&[
-            (&"nft - 58".to_string(), &"creator".to_string()),
-            (&"nft - 59".to_string(), &"creator".to_string())
-        ]);
-
+    let mut deps = mock_dependencies();
     init_helper(deps.as_mut());
     add_collateral_helper(deps.as_mut(), "creator", "nft", "58", None, None).unwrap();
     add_collateral_helper(deps.as_mut(), "creator", "nft", "59", None, None).unwrap();
@@ -1029,7 +1000,7 @@ fn test_normal_flow() {
                         addresses: vec!["nft".to_string()],
                         fee_type: FeeType::Funds
                     },
-                    "fee_distributor",
+                    "T",
                     Some(coins(3, "luna"))
                 )
                 .unwrap()
@@ -1087,50 +1058,4 @@ fn test_defaulted_flow() {
     assert_error(err, ContractError::Unauthorized {});
     withdraw_defaulted_loan_helper(deps.as_mut(), "anyone", "creator", 0, env.clone()).unwrap();
     withdraw_defaulted_loan_helper(deps.as_mut(), "anyone", "creator", 0, env).unwrap_err();
-}
-
-#[test]
-fn test_steal_funds() {
-    // modification of test_normal_flow() test case
-    // reproduced in contracts/nft-loans-non-custodial/src/testing/tests.rs
-    // note: attacker is both the lender and borrower
-    let mut deps = mock_dependencies();
-    let env = mock_env();
-    init_helper(deps.as_mut());
-    // malicious terms, interest set to 0 to prevent fee distribution
-    let terms = LoanTerms {
-        principle: coin(1000, "luna"),
-        interest: Uint128::new(0),
-        duration_in_blocks: 1,
-    };
-    // attacker deposit nft collateral
-    add_collateral_helper(
-        deps.as_mut(),
-        "attacker",
-        "nft",
-        "58",
-        Some(Uint128::new(1000_u128)),
-        Some(terms),
-    )
-    .unwrap();
-    // attacker accepts their own offer
-    // 1. attacker send 1000 LUNA to contract
-    // 2. contract takes attacker's NFT
-    // 3. contract sends 1000 LUNA to attacker
-    accept_loan_helper(
-        deps.as_mut(),
-        "attacker",
-        "attacker",
-        0,
-        coins(1000, "luna"),
-    )
-    .unwrap();
-    // attacker repay the funds
-    // 1. attacker send 1000 LUNA to contract
-    // 2. contract sends back attacker's NFT
-    repay_borrowed_funds_helper(deps.as_mut(), "attacker", 0, coins(1000, "luna"), env).unwrap();
-    // attacker calls `RefuseOffer` to mutate offer state to `Refused`
-    let err = refuse_offer_helper(deps.as_mut(), "attacker", "1").unwrap_err();
-    // The attacker can't refuse an offer that was already accepted or withdrawn, etc.
-    assert_error(err, ContractError::NotRefusable {  });
 }

@@ -306,19 +306,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw1155"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbd87d9a443be55a1b4538207adef45a4c745355d198cc84800a6dba2ae473d9"
-dependencies = [
- "cosmwasm-schema 1.1.9",
- "cosmwasm-std",
- "cw-utils 0.15.1",
- "schemars",
- "serde",
-]
-
-[[package]]
 name = "cw2"
 version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -802,7 +789,7 @@ dependencies = [
  "cosmwasm-schema 1.1.9",
  "cosmwasm-std",
  "cw-storage-plus 0.13.4",
- "cw1155 0.13.4",
+ "cw1155",
  "cw2 0.13.4",
  "cw20 0.13.4",
  "cw20-base 0.13.4",
@@ -865,7 +852,7 @@ dependencies = [
  "cosmwasm-schema 1.1.9",
  "cosmwasm-std",
  "cw-storage-plus 0.13.4",
- "cw1155 0.13.4",
+ "cw1155",
  "cw2 0.13.4",
  "cw20 0.13.4",
  "cw20-base 0.13.4",
@@ -951,11 +938,11 @@ dependencies = [
  "anyhow",
  "cosmwasm-schema 1.1.9",
  "cosmwasm-std",
- "cw-storage-plus 0.15.1",
- "cw1155 0.15.1",
- "cw2 0.15.1",
- "cw20 0.15.1",
- "cw721 0.15.0",
+ "cw-storage-plus 0.13.4",
+ "cw1155",
+ "cw2 0.13.4",
+ "cw20 0.13.4",
+ "cw721 0.13.4",
  "getrandom 0.2.7",
  "hex",
  "raffles-export",
@@ -966,7 +953,6 @@ dependencies = [
  "serde",
  "sha2 0.9.9",
  "thiserror",
- "utils",
 ]
 
 [[package]]
@@ -976,16 +962,15 @@ dependencies = [
  "anyhow",
  "cosmwasm-schema 1.1.9",
  "cosmwasm-std",
- "cw-storage-plus 0.15.1",
- "cw20 0.15.1",
- "cw20-base 0.15.1",
- "cw721 0.15.0",
+ "cw-storage-plus 0.13.4",
+ "cw20 0.13.4",
+ "cw20-base 0.13.4",
+ "cw721 0.13.4",
  "schemars",
  "serde",
  "strum",
  "strum_macros",
  "thiserror",
- "utils",
 ]
 
 [[package]]

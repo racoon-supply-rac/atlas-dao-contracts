@@ -1,6 +1,6 @@
 use crate::state::{BorrowerInfo, CollateralInfo, ContractInfo, LoanTerms, OfferInfo};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{StdError, StdResult, Decimal};
+use cosmwasm_std::{StdError, StdResult, Uint128};
 use utils::msg::is_valid_name;
 use utils::state::AssetInfo;
 
@@ -12,30 +12,23 @@ pub struct InstantiateMsg {
     pub name: String,
     pub owner: Option<String>,
     pub fee_distributor: String,
-    pub fee_rate: Decimal,
+    pub fee_rate: Uint128,
 }
 
 impl InstantiateMsg {
     pub fn validate(&self) -> StdResult<()> {
-        // Check name
+        // Check name, symbol, decimals
         if !is_valid_name(&self.name) {
             return Err(StdError::generic_err(
                 "Name is not in the expected format (3-50 UTF-8 bytes)",
             ));
         }
-        // Check the fee distribution
-        if self.fee_rate >= Decimal::one(){
-            return Err(StdError::generic_err(
-                "The Fee rate should be lower than 1"
-            ))
-        }
-
-
         Ok(())
     }
 }
 /// This contract nevers holds any funds
 /// In case it does, it's that an error occured
+/// TODO, we need to provide a way to make sure we can get those funds back
 #[cw_serde]
 pub enum ExecuteMsg {
     //// We support both Cw721 and Cw1155
@@ -93,12 +86,11 @@ pub enum ExecuteMsg {
     SetOwner {
         owner: String,
     },
-    ClaimOwnership { },
     SetFeeDistributor {
         fee_depositor: String,
     },
     SetFeeRate {
-        fee_rate: Decimal,
+        fee_rate: Uint128,
     },
 }
 

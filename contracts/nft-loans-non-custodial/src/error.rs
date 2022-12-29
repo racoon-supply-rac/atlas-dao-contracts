@@ -20,9 +20,6 @@ pub enum ContractError {
     #[error("Wrong asset deposited, only cw1155 and cw721 are authorized")]
     WrongAssetDeposited {},
 
-    #[error("Please include at least one asset when creating a loan")]
-    NoAssets {},
-
     #[error("You need to send exactly one coin with this transaction")]
     MultipleCoins {},
 
@@ -41,17 +38,11 @@ pub enum ContractError {
     #[error("Sorry, no assets to withdraw here")]
     NoFundsToWithdraw {},
 
-    #[error("The Message sender has to be the owner of the NFT to prevent hacks")]
-    SenderNotOwner {},
-
     #[error("Sorry, you can't accept this loan")]
     NotAcceptable {},
 
     #[error("Sorry, you can't make an offer on this loan")]
     NotCounterable {},
-
-    #[error("Sorry, you can't refuse this offer, it's not published")]
-    NotRefusable {},
 
     #[error("This loan doesn't have any terms")]
     NoTermsSpecified {},
