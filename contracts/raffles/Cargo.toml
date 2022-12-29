@@ -34,6 +34,7 @@ sha2 = { version = "0.9.1", default-features = false }
 
 # Local Modules
 raffles-export = { path = "../../packages/raffles", version = "0.1.0" }
+utils = { path = "../../packages/utils", version = "0.1.0" }
 
 [dev-dependencies]
 cosmwasm-schema = { version = "1.0.0" }
@@ -41,3 +42,5 @@ getrandom = { version="^0.2", features = ["js"] }
 rustc-serialize = "0.3.24"
 hex = "0.4.3"
 
+[profile.release]
+overflow-checks = true

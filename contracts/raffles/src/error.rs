@@ -22,6 +22,9 @@ pub enum ContractError {
     #[error("{0} not found in context")]
     NotFoundError(String),
 
+    #[error("The Message sender has to be the owner of the NFT to prevent hacks")]
+    SenderNotOwner {},
+
     #[error("This action is not allowed, the contract is locked")]
     ContractIsLocked {},
 
@@ -42,6 +45,9 @@ pub enum ContractError {
 
     #[error("The sent asset doesn't match the asset in the message sent along with it")]
     AssetMismatch {},
+
+    #[error("Please include at least one asset when creating a raffle")]
+    NoAssets {},
 
     #[error("The sent assets ({assets_received:?}) don't match the required assets ({assets_wanted:?}) for this raffle")]
     PaiementNotSufficient {
@@ -71,6 +77,9 @@ pub enum ContractError {
 
     #[error("This raffle is not ready to be claimed.  Current status : {status:?}")]
     WrongStateForClaim { status: RaffleState },
+
+    #[error("This raffle cannot be cancelled anymore,   Current status : {status:?}")]
+    WrongStateForCancel { status: RaffleState },
 
     #[error("This raffle has already started.")]
     RaffleAlreadyStarted {},

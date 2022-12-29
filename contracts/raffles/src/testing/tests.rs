@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use anyhow::Result;
 extern crate rustc_serialize as serialize;
 use serialize::base64::{self, ToBase64};
@@ -7,8 +8,9 @@ use cosmwasm_std::{
     coin, coins, from_binary,
     testing::{mock_dependencies, mock_env, mock_info, MOCK_CONTRACT_ADDR},
     Api, BankMsg, Binary, Coin, DepsMut, Event, Response, SubMsg, SubMsgResponse, SubMsgResult,
-    Uint128,
+    Uint128, Decimal
 };
+use utils::state::OwnerStruct;
 
 use raffles_export::msg::{
     into_cosmos_msg, AllRafflesResponse, DrandRandomness, ExecuteMsg, InstantiateMsg, QueryFilters,
@@ -27,22 +29,25 @@ use cw1155::Cw1155ExecuteMsg;
 use cw20::Cw20ExecuteMsg;
 use cw721::Cw721ExecuteMsg;
 
+use crate::testing::mock_querier::mock_querier_dependencies;
+
 const HEX_PUBKEY: &str = "868f005eb8e6e4ca0a47c8a77ceaa5309a47978a7c71bc5cce96366b5d7a569937c529eeda66c7293784a9402801af31";
+
+pub fn assert_error(err: anyhow::Error, contract_error: ContractError) {
+    assert_eq!(err.downcast::<ContractError>().unwrap(), contract_error)
+}
 
 fn init_helper(deps: DepsMut) {
     let instantiate_msg = InstantiateMsg {
         name: "nft-raffle".to_string(),
         owner: None,
-        random_pubkey: Binary::from_base64(
-            &HEX_PUBKEY.from_hex().unwrap().to_base64(base64::STANDARD),
-        )
-        .unwrap(),
+        random_pubkey: HEX_PUBKEY.from_hex().unwrap().to_base64(base64::STANDARD),
         drand_url: None,
         verify_signature_contract: "verifier".to_string(),
         fee_addr: None,
         minimum_raffle_timeout: None,
         minimum_raffle_duration: None,
-        raffle_fee: Some(Uint128::from(2u128)),
+        raffle_fee: Some(Decimal::from_str("0.0002").unwrap()),
         rand_fee: None,
         max_participant_number: None,
     };
@@ -69,6 +74,18 @@ fn create_raffle(deps: DepsMut) -> Result<Response> {
             raffle_options: RaffleOptionsMsg::default(),
             raffle_ticket_price: AssetInfo::coin(10000u128, "uluna"),
         },
+    )
+}
+
+fn cancel_raffle_helper(deps: DepsMut, caller: &str, raffle_id: u64) -> Result<Response> {
+    let info = mock_info(caller, &[]);
+    let env = mock_env();
+
+    execute(
+        deps,
+        env,
+        info,
+        ExecuteMsg::CancelRaffle { raffle_id }
     )
 }
 
@@ -191,7 +208,12 @@ fn test_init_sanity() {
 
 #[test]
 fn test_create_raffle() {
-    let mut deps = mock_dependencies();
+    let mut deps = mock_querier_dependencies(&[]);
+    deps.querier
+        .with_owner_of(&[
+            (&"nft - token_id".to_string(), &"creator".to_string())
+        ]);
+        
     init_helper(deps.as_mut());
     let response = create_raffle(deps.as_mut()).unwrap();
 
@@ -211,8 +233,52 @@ fn test_create_raffle() {
 }
 
 #[test]
+fn test_create_and_cancel_raffle() {
+    let mut deps = mock_querier_dependencies(&[]);
+    deps.querier
+        .with_owner_of(&[
+            (&"nft - token_id".to_string(), &"creator".to_string())
+        ]);
+        
+    init_helper(deps.as_mut());
+    create_raffle(deps.as_mut()).unwrap();
+
+    let err = cancel_raffle_helper(deps.as_mut(), "bad_person", 0).unwrap_err();
+
+    assert_error(
+        err,
+        ContractError::Unauthorized {  }
+    );
+    let response = cancel_raffle_helper(deps.as_mut(), "creator", 0).unwrap();
+
+    assert_eq!(
+        response.messages,
+        vec![SubMsg::new(
+            into_cosmos_msg(
+                Cw721ExecuteMsg::TransferNft {
+                    recipient: "creator".to_string(),
+                    token_id: "token_id".to_string(),
+                },
+                "nft"
+            )
+            .unwrap()
+        )]
+    );
+
+    // Can't cancel twice
+    let err = cancel_raffle_helper(deps.as_mut(), "creator", 0).unwrap_err();
+    assert_error(err, ContractError::WrongStateForCancel { status: RaffleState::Cancelled })
+
+}
+
+#[test]
 fn test_claim_raffle() {
-    let mut deps = mock_dependencies();
+    let mut deps = mock_querier_dependencies(&[]);
+    deps.querier
+        .with_owner_of(&[
+            (&"nft - token_id".to_string(), &"creator".to_string())
+        ]);
+
     init_helper(deps.as_mut());
     create_raffle(deps.as_mut()).unwrap();
 
@@ -258,7 +324,12 @@ fn test_claim_raffle() {
 
 #[test]
 fn test_ticket_and_claim_raffle() {
-    let mut deps = mock_dependencies();
+    let mut deps = mock_querier_dependencies(&[]);
+    deps.querier
+        .with_owner_of(&[
+            (&"nft - token_id".to_string(), &"creator".to_string())
+        ]);
+        
     init_helper(deps.as_mut());
     create_raffle(deps.as_mut()).unwrap();
 
@@ -350,7 +421,12 @@ fn test_ticket_and_claim_raffle() {
 
 #[test]
 fn test_multiple_tickets_and_claim_raffle() {
-    let mut deps = mock_dependencies();
+    let mut deps = mock_querier_dependencies(&[]);
+    deps.querier
+        .with_owner_of(&[
+            (&"nft - token_id".to_string(), &"creator".to_string())
+        ]);
+        
     init_helper(deps.as_mut());
     create_raffle(deps.as_mut()).unwrap();
 
@@ -452,7 +528,12 @@ fn test_multiple_tickets_and_claim_raffle() {
 
 #[test]
 fn test_ticket_and_claim_raffle_cw20() {
-    let mut deps = mock_dependencies();
+    let mut deps = mock_querier_dependencies(&[]);
+    deps.querier
+        .with_owner_of(&[
+            (&"nft - token_id".to_string(), &"creator".to_string())
+        ]);
+        
     init_helper(deps.as_mut());
     create_raffle_cw20(deps.as_mut()).unwrap();
 
@@ -787,18 +868,25 @@ fn test_renounce() {
     init_helper(deps.as_mut());
     let info = mock_info("bad_person", &[]);
     let env = mock_env();
-    execute(deps.as_mut(), env.clone(), info, ExecuteMsg::Renounce {}).unwrap_err();
+    execute(deps.as_mut(), env.clone(), info, ExecuteMsg::ChangeParameter { parameter: "owner".to_string(), value: env.contract.address.to_string() }).unwrap_err();
 
     let info = mock_info("creator", &[]);
     execute(
         deps.as_mut(),
         env.clone(),
         info.clone(),
-        ExecuteMsg::Renounce {},
+        ExecuteMsg::ChangeParameter { parameter: "owner".to_string(), value: env.contract.address.to_string() },
     )
     .unwrap();
+    // Still admin
+    execute(deps.as_mut(), env.clone(), info.clone(), ExecuteMsg::ChangeParameter { parameter: "owner".to_string(), value: env.contract.address.to_string() }).unwrap();
 
-    execute(deps.as_mut(), env, info, ExecuteMsg::Renounce {}).unwrap_err();
+    // Claim ownership
+    execute(deps.as_mut(), env.clone(), mock_info(&env.contract.address.to_string(), &[]), ExecuteMsg::ClaimOwnership {  }).unwrap();
+
+    // Not admin anymore
+    execute(deps.as_mut(), env.clone(), info, ExecuteMsg::ChangeParameter { parameter: "owner".to_string(), value: env.contract.address.to_string() }).unwrap_err();
+
 }
 
 #[test]
@@ -900,13 +988,13 @@ fn test_query_contract_info() {
         from_binary::<ContractInfo>(&response).unwrap(),
         ContractInfo {
             name: "nft-raffle".to_string(),
-            owner: deps.api.addr_validate("creator").unwrap(),
+            owner: OwnerStruct::new(deps.api.addr_validate("creator").unwrap()),
             fee_addr: deps.api.addr_validate("creator").unwrap(),
             last_raffle_id: None,
             minimum_raffle_duration: 1u64,
             minimum_raffle_timeout: 120u64,
-            raffle_fee: Uint128::from(2u128), // in 10_000
-            rand_fee: Uint128::from(1u64),    // in 10_000
+            raffle_fee: Decimal::from_str("0.0002").unwrap(),
+            rand_fee: Decimal::from_str("0.0001").unwrap(),
             lock: false,
             drand_url: "https://api.drand.sh/".to_string(),
             verify_signature_contract: deps.api.addr_validate("verifier").unwrap(),
@@ -920,7 +1008,12 @@ fn test_query_contract_info() {
 
 #[test]
 fn test_query_raffle_info() {
-    let mut deps = mock_dependencies();
+    let mut deps = mock_querier_dependencies(&[]);
+    deps.querier
+        .with_owner_of(&[
+            (&"nft - token_id".to_string(), &"creator".to_string())
+        ]);
+        
     init_helper(deps.as_mut());
 
     create_raffle(deps.as_mut()).unwrap();
@@ -963,7 +1056,12 @@ fn test_query_raffle_info() {
 
 #[test]
 fn test_query_all_raffle_info() {
-    let mut deps = mock_dependencies();
+    let mut deps = mock_querier_dependencies(&[]);
+    deps.querier
+        .with_owner_of(&[
+            (&"nft - token_id".to_string(), &"creator".to_string())
+        ]);
+        
     init_helper(deps.as_mut());
 
     create_raffle(deps.as_mut()).unwrap();
@@ -1162,7 +1260,12 @@ fn test_query_all_raffle_info() {
 
 #[test]
 fn test_multiple_tickets() {
-    let mut deps = mock_dependencies();
+    let mut deps = mock_querier_dependencies(&[]);
+    deps.querier
+        .with_owner_of(&[
+            (&"nft - token_id".to_string(), &"creator".to_string())
+        ]);
+        
     init_helper(deps.as_mut());
     create_raffle(deps.as_mut()).unwrap();
 

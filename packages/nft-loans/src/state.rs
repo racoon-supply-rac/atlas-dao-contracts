@@ -1,5 +1,6 @@
+use utils::state::OwnerStruct;
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Coin, Timestamp, Uint128};
+use cosmwasm_std::{Addr, Coin, Timestamp, Uint128, Decimal};
 
 use utils::state::AssetInfo;
 // We neep a map per user of all loans that are happening right now !
@@ -78,8 +79,8 @@ pub enum OfferState {
 #[cw_serde]
 pub struct ContractInfo {
     pub name: String,
-    pub owner: Addr,
-    pub fee_distributor: String,
-    pub fee_rate: Uint128,
+    pub owner: OwnerStruct,
+    pub fee_distributor: Addr,
+    pub fee_rate: Decimal,
     pub global_offer_index: u64,
 }

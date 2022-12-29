@@ -2,21 +2,23 @@ use anyhow::{anyhow, bail, Result};
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     to_binary, Binary, Deps, DepsMut, Env, Event, MessageInfo, Reply, Response, StdError,
-    SubMsgResult, Uint128,
+    SubMsgResult, Decimal
 };
 #[cfg(not(feature = "library"))]
 use std::convert::TryInto;
+use std::str::FromStr;
 
 use cw2::set_contract_version;
 
-use crate::error::ContractError;
+use utils::state::OwnerStruct;
 
-use crate::state::{get_raffle_state, is_owner, load_raffle, CONTRACT_INFO, RAFFLE_INFO};
+
 use raffles_export::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, RaffleResponse};
 use raffles_export::state::{
     ContractInfo, Randomness, MINIMUM_RAFFLE_DURATION, MINIMUM_RAFFLE_TIMEOUT, MINIMUM_RAND_FEE,
 };
 
+use crate::error::ContractError;
 use crate::execute::{
     execute_buy_tickets, execute_cancel_raffle, execute_claim, execute_create_raffle,
     execute_modify_raffle, execute_receive, execute_update_randomness,
@@ -24,6 +26,7 @@ use crate::execute::{
 use crate::query::{
     query_all_raffles, query_all_tickets, query_contract_info, query_ticket_number,
 };
+use crate::state::{get_raffle_state, is_owner, load_raffle, CONTRACT_INFO, RAFFLE_INFO};
 
 const CONTRACT_NAME: &str = "illiquidlabs.io:raffles";
 const CONTRACT_VERSION: &str = "0.1.0";
@@ -34,7 +37,7 @@ pub fn instantiate(
     _env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
-) -> Result<Response, ContractError> {
+) -> Result<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     // Verify the contract name
@@ -42,9 +45,9 @@ pub fn instantiate(
     // store token info
     let data = ContractInfo {
         name: msg.name,
-        owner: deps
+        owner: OwnerStruct::new(deps
             .api
-            .addr_validate(&msg.owner.unwrap_or_else(|| info.sender.to_string()))?,
+            .addr_validate(&msg.owner.unwrap_or_else(|| info.sender.to_string()))?),
         fee_addr: deps
             .api
             .addr_validate(&msg.fee_addr.unwrap_or_else(|| info.sender.to_string()))?,
@@ -57,22 +60,26 @@ pub fn instantiate(
             .minimum_raffle_timeout
             .unwrap_or(MINIMUM_RAFFLE_TIMEOUT)
             .max(MINIMUM_RAFFLE_TIMEOUT),
-        raffle_fee: msg.raffle_fee.unwrap_or(Uint128::zero()),
+        raffle_fee: msg.raffle_fee.unwrap_or(Decimal::zero()),
         rand_fee: msg
             .rand_fee
-            .unwrap_or_else(|| Uint128::from(MINIMUM_RAND_FEE)),
+            .unwrap_or(MINIMUM_RAND_FEE)
+            .max(MINIMUM_RAND_FEE),
         lock: false,
         drand_url: msg
             .drand_url
             .unwrap_or_else(|| "https://api.drand.sh/".to_string()),
-        random_pubkey: msg.random_pubkey,
+        random_pubkey: Binary::from_base64(&msg.random_pubkey)?,
         verify_signature_contract: deps.api.addr_validate(&msg.verify_signature_contract)?,
     };
+
+    data.validate_fee()?;
+
     CONTRACT_INFO.save(deps.storage, &data)?;
     Ok(Response::default()
         .add_attribute("action", "init")
         .add_attribute("contract", "raffle")
-        .add_attribute("owner", data.owner))
+        .add_attribute("owner", data.owner.owner))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -110,11 +117,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> R
             ticket_number,
             sent_assets,
         } => execute_buy_tickets(deps, env, info, raffle_id, ticket_number, sent_assets),
-        ExecuteMsg::Receive {
-            sender,
-            amount,
-            msg,
-        } => execute_receive(deps, env, info, sender, amount, msg),
+        ExecuteMsg::Receive (msg) => execute_receive(deps, env, info, msg),
         ExecuteMsg::ClaimNft { raffle_id } => execute_claim(deps, env, info, raffle_id),
         ExecuteMsg::UpdateRandomness {
             raffle_id,
@@ -123,10 +126,10 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> R
 
         // Admin messages
         ExecuteMsg::ToggleLock { lock } => execute_toggle_lock(deps, env, info, lock),
-        ExecuteMsg::Renounce {} => execute_renounce(deps, env, info),
         ExecuteMsg::ChangeParameter { parameter, value } => {
             execute_change_parameter(deps, env, info, parameter, value)
         }
+        ExecuteMsg::ClaimOwnership { } => claim_ownership(deps, env, info),
     }
 }
 
@@ -176,24 +179,6 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary> {
     }
 }
 
-/// Replace the current contract owner with the provided owner address
-/// * `owner` must be a valid Terra address
-/// The owner has limited power on this contract :
-/// 1. Change the contract owner
-/// 2. Change the fee contract
-/// 3. Change the default raffle parameters
-pub fn execute_renounce(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response> {
-    let mut contract_info = is_owner(deps.storage, info.sender)?;
-
-    contract_info.owner = env.contract.address;
-    CONTRACT_INFO.save(deps.storage, &contract_info)?;
-
-    Ok(Response::new()
-        .add_attribute("action", "modify_parameter")
-        .add_attribute("parameter", "owner")
-        .add_attribute("value", contract_info.owner))
-}
-
 /// Locking the contract (lock=true) means preventing the creation of new raffles
 /// Tickets can still be bought and NFTs retrieved when a contract is locked
 pub fn execute_toggle_lock(
@@ -227,7 +212,7 @@ pub fn execute_change_parameter(
     match parameter.as_str() {
         "owner" => {
             let owner = deps.api.addr_validate(&value)?;
-            contract_info.owner = owner;
+            contract_info.owner = contract_info.owner.propose_new_owner(owner);
         }
         "fee_addr" => {
             let addr = deps.api.addr_validate(&value)?;
@@ -235,19 +220,19 @@ pub fn execute_change_parameter(
         }
         "minimum_raffle_duration" => {
             let time = value.parse::<u64>()?;
-            contract_info.minimum_raffle_duration = time;
+            contract_info.minimum_raffle_duration = time.max(MINIMUM_RAFFLE_DURATION);
         }
         "minimum_raffle_timeout" => {
             let time = value.parse::<u64>()?;
-            contract_info.minimum_raffle_timeout = time;
+            contract_info.minimum_raffle_timeout = time.max(MINIMUM_RAFFLE_TIMEOUT);
         }
         "raffle_fee" => {
-            let fee = Uint128::from(value.parse::<u128>()?);
+            let fee = Decimal::from_str(&value)?;
             contract_info.raffle_fee = fee;
         }
         "rand_fee" => {
-            let fee = Uint128::from(value.parse::<u128>()?);
-            contract_info.rand_fee = fee;
+            let fee = Decimal::from_str(&value)?;
+            contract_info.rand_fee = fee.max(MINIMUM_RAND_FEE);
         }
         "drand_url" => {
             contract_info.drand_url = value.clone();
@@ -257,11 +242,12 @@ pub fn execute_change_parameter(
             contract_info.verify_signature_contract = addr;
         }
         "random_pubkey" => {
-            contract_info.random_pubkey = Binary::from_base64(&value).unwrap();
+            contract_info.random_pubkey = Binary::from_base64(&value)?;
         }
         _ => return Err(anyhow!(ContractError::ParameterNotFound {})),
     }
 
+    contract_info.validate_fee()?;
     CONTRACT_INFO.save(deps.storage, &contract_info)?;
 
     Ok(Response::new()
@@ -269,6 +255,25 @@ pub fn execute_change_parameter(
         .add_attribute("parameter", parameter)
         .add_attribute("value", value))
 }
+
+/// Claim ownership of the contract
+pub fn claim_ownership(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+) -> Result<Response> {
+
+    let mut contract_info = CONTRACT_INFO.load(deps.storage)?;
+
+    contract_info.owner = contract_info.owner.validate_new_owner(info)?;
+
+    CONTRACT_INFO.save(deps.storage, &contract_info)?;
+
+    Ok(Response::default()
+        .add_attribute("action", "claimed contract ownership")
+        .add_attribute("new owner", contract_info.owner.owner))
+}
+
 
 /// Messages triggered after random validation.
 /// We wrap the random validation in a message to make sure the transaction goes through.
@@ -338,7 +343,7 @@ pub fn verify(deps: DepsMut, _env: Env, msg: SubMsgResult) -> Result<Response> {
                     .into_iter()
                     .find(|attr| attr.key == "owner")
                     .map(|owner| owner.value)
-                    .ok_or_else(|| ContractError::NotFoundError("raffle owner".to_string()))?,
+                    .ok_or_else(|| ContractError::NotFoundError("randomness provider".to_string()))?,
             )?;
 
             let mut raffle_info = RAFFLE_INFO.load(deps.storage, raffle_id)?;

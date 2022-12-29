@@ -57,7 +57,7 @@ pub fn assert_randomness_origin_and_order(
 
 pub fn is_owner(storage: &dyn Storage, sender: Addr) -> Result<ContractInfo, ContractError> {
     let contract_info = CONTRACT_INFO.load(storage)?;
-    if sender == contract_info.owner {
+    if sender == contract_info.owner.owner {
         Ok(contract_info)
     } else {
         Err(ContractError::Unauthorized {})
@@ -223,8 +223,8 @@ pub fn get_raffle_owner_finished_messages(
         AssetInfo::Coin(coin) => coin.amount,
         _ => return Err(anyhow!(ContractError::WrongFundsType {})),
     } * Uint128::from(raffle_info.number_of_tickets);
-    let rand_amount = total_paid * contract_info.rand_fee / Uint128::from(10_000u128);
-    let treasury_amount = total_paid * contract_info.raffle_fee / Uint128::from(10_000u128);
+    let rand_amount = total_paid * contract_info.rand_fee;
+    let treasury_amount = total_paid * contract_info.raffle_fee;
     let owner_amount = total_paid - rand_amount - treasury_amount;
 
     // Then we craft the messages needed for asset transfers

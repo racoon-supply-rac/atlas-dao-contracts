@@ -1,12 +1,15 @@
+
+use cw20::Cw20ReceiveMsg;
+use anyhow::Result;
+use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::{to_binary, Binary, CosmosMsg, StdError, StdResult, WasmMsg, Decimal};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
 use crate::state::ContractInfo;
 use crate::state::RaffleInfo;
 use crate::state::RaffleState;
 use crate::state::{AssetInfo, RaffleOptionsMsg};
-use anyhow::Result;
-use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{to_binary, Binary, CosmosMsg, StdError, StdResult, Uint128, WasmMsg};
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 
 fn is_valid_name(name: &str) -> bool {
     let bytes = name.as_bytes();
@@ -41,10 +44,10 @@ pub struct InstantiateMsg {
     pub minimum_raffle_duration: Option<u64>,
     pub minimum_raffle_timeout: Option<u64>,
     pub max_participant_number: Option<u32>,
-    pub raffle_fee: Option<Uint128>, // in 10_000
-    pub rand_fee: Option<Uint128>,   // in 10_000
+    pub raffle_fee: Option<Decimal>, 
+    pub rand_fee: Option<Decimal>,   
     pub drand_url: Option<String>,
-    pub random_pubkey: Binary,
+    pub random_pubkey: String,
     pub verify_signature_contract: String,
 }
 
@@ -53,7 +56,7 @@ pub struct MigrateMsg {}
 
 impl InstantiateMsg {
     pub fn validate(&self) -> StdResult<()> {
-        // Check name, symbol, decimals
+        // Check name
         if !is_valid_name(&self.name) {
             return Err(StdError::generic_err(
                 "Name is not in the expected format (3-50 UTF-8 bytes)",
@@ -91,11 +94,7 @@ pub enum ExecuteMsg {
         ticket_number: u32,
         sent_assets: AssetInfo,
     },
-    Receive {
-        sender: String,
-        amount: Uint128,
-        msg: Binary,
-    },
+    Receive(Cw20ReceiveMsg),
     ClaimNft {
         raffle_id: u64,
     },
@@ -108,11 +107,11 @@ pub enum ExecuteMsg {
     ToggleLock {
         lock: bool,
     },
-    Renounce {},
     ChangeParameter {
         parameter: String,
         value: String,
     },
+    ClaimOwnership { }
 }
 
 #[cw_serde]

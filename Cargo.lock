@@ -953,6 +953,7 @@ dependencies = [
  "serde",
  "sha2 0.9.9",
  "thiserror",
+ "utils",
 ]
 
 [[package]]
@@ -971,6 +972,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "thiserror",
+ "utils",
 ]
 
 [[package]]

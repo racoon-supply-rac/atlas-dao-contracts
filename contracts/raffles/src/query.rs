@@ -1,14 +1,20 @@
-use crate::state::RAFFLE_TICKETS;
-use anyhow::{anyhow, Result};
+
+use anyhow::{anyhow, Result, bail};
 #[cfg(not(feature = "library"))]
-use cosmwasm_std::{Api, Deps, Env, Order, StdResult};
+
+use cosmwasm_std::{Api, Deps, Env, Order, StdResult, WasmQuery};
+use cosmwasm_std::QueryRequest;
+use cosmwasm_std::to_binary;
+use cosmwasm_std::Addr;
+
 use raffles_export::msg::AllRafflesResponse;
 use raffles_export::msg::RaffleResponse;
 
 use cw_storage_plus::Bound;
 
+use cw721::{Cw721QueryMsg, OwnerOfResponse};
 use crate::error::ContractError;
-use crate::state::{get_raffle_state, load_raffle, CONTRACT_INFO, RAFFLE_INFO, USER_TICKETS};
+use crate::state::{get_raffle_state, load_raffle, CONTRACT_INFO, RAFFLE_INFO, USER_TICKETS, RAFFLE_TICKETS};
 use raffles_export::msg::QueryFilters;
 use raffles_export::state::{AssetInfo, ContractInfo, RaffleInfo, RaffleState};
 
@@ -213,4 +219,17 @@ pub fn query_all_tickets(
         .map(|kv_item| Ok(kv_item?.1.to_string()))
         .take(limit)
         .collect()
+}
+
+pub fn is_nft_owner(deps: Deps, sender: Addr, nft_address: String, token_id: String) -> Result<()>{
+
+    let owner_response: OwnerOfResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: nft_address,
+            msg: to_binary(&Cw721QueryMsg::OwnerOf { token_id, include_expired: None })?,
+        }))?;
+
+    if owner_response.owner != sender{
+        bail!(ContractError::SenderNotOwner{})
+    }
+    Ok(())
 }
