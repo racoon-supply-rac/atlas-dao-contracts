@@ -16,6 +16,7 @@ pub struct CollateralInfo {
     pub active_offer: Option<String>,
     pub start_block: Option<u64>,
     pub comment: Option<String>,
+    pub loan_preview: Option<AssetInfo>, // The preview can only be a CW1155 or a CW721 token.
 }
 
 impl Default for CollateralInfo {
@@ -29,6 +30,7 @@ impl Default for CollateralInfo {
             offer_amount: 0u64,
             active_offer: None,
             start_block: None,
+            loan_preview: None,
         }
     }
 }

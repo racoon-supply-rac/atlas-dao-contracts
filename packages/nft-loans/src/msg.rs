@@ -43,12 +43,14 @@ pub enum ExecuteMsg {
         tokens: Vec<AssetInfo>,
         terms: Option<LoanTerms>,
         comment: Option<String>,
+        loan_preview: Option<AssetInfo>
     },
     /// Used to modify the loan terms and the associated comment
     ModifyCollaterals {
         loan_id: u64,
         terms: Option<LoanTerms>,
         comment: Option<String>,
+        loan_preview: Option<AssetInfo>
     },
     /// Used to withdraw the collateral before the loan starts
     WithdrawCollaterals {

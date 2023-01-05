@@ -73,4 +73,7 @@ pub enum ContractError {
 
     #[error("The loan has already been defaulted, you can't withdraw the funds again")]
     LoanAlreadyDefaulted {},
+
+    #[error("You can't set a preview of an asset not associated with the loan")]
+    AssetNotInLoan {},
 }

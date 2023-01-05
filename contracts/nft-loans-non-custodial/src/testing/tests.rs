@@ -204,6 +204,7 @@ pub fn add_collateral_helper(
             }],
             terms,
             comment: None,
+            loan_preview: None,
         },
     )
 }
@@ -225,6 +226,7 @@ fn set_terms_helper(
             loan_id,
             terms: Some(terms),
             comment: None,
+            loan_preview: None
         },
     )
 }
@@ -593,7 +595,8 @@ fn test_accept_loan() {
             start_block: Some(12345),
             offer_amount: 1,
             comment: None,
-            list_date: mock_env().block.time
+            list_date: mock_env().block.time,
+            loan_preview: None
         }
     );
 }

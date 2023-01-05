@@ -42,6 +42,7 @@ pub fn deposit_collaterals(
     tokens: Vec<AssetInfo>,
     terms: Option<LoanTerms>,
     comment: Option<String>,
+    loan_preview: Option<AssetInfo>,
 ) -> Result<Response> {
     let borrower = info.sender;
 
@@ -65,7 +66,15 @@ pub fn deposit_collaterals(
             None => Ok(BorrowerInfo::default()),
         })?
         .last_collateral_id;
-    // Then we save an collateral info object
+        
+    // Then we verify we can set the asset as preview
+    if let Some(preview) = loan_preview.clone(){
+        if !tokens.iter().any(|r| *r == preview) {
+            bail!(ContractError::AssetNotInLoan {});
+        }
+    }
+
+    // Finally we save an collateral info object
     COLLATERAL_INFO.save(
         deps.storage,
         (borrower.clone(), loan_id),
@@ -74,12 +83,13 @@ pub fn deposit_collaterals(
             associated_assets: tokens,
             list_date: env.block.time,
             comment,
+            loan_preview,
             ..Default::default()
         },
     )?;
 
     Ok(Response::new()
-        .add_attribute("action", "deposit-collateral")
+        .add_attribute("action", "deposit_collateral")
         .add_attribute("borrower", borrower)
         .add_attribute("loan_id", loan_id.to_string()))
 }
@@ -94,6 +104,7 @@ pub fn modify_collaterals(
     loan_id: u64,
     terms: Option<LoanTerms>,
     comment: Option<String>,
+    loan_preview: Option<AssetInfo>,
 ) -> Result<Response> {
     let borrower = info.sender;
 
@@ -111,6 +122,13 @@ pub fn modify_collaterals(
                 if comment.is_some() {
                     collateral.comment = comment;
                 }
+                // Then we verify we can set the asset as preview
+                if let Some(preview) = loan_preview.clone(){
+                    if !collateral.associated_assets.iter().any(|r| *r == preview) {
+                        bail!(ContractError::AssetNotInLoan {});
+                    }
+                    collateral.loan_preview = loan_preview;
+                }
                 collateral.list_date = env.block.time;
 
                 Ok(collateral)
@@ -119,7 +137,7 @@ pub fn modify_collaterals(
     )?;
 
     Ok(Response::new()
-        .add_attribute("action", "modify-collaterals")
+        .add_attribute("action", "modify_collaterals")
         .add_attribute("borrower", borrower)
         .add_attribute("loan_id", loan_id.to_string()))
 }
@@ -144,8 +162,8 @@ pub fn withdraw_collateral(
     COLLATERAL_INFO.save(deps.storage, (borrower.clone(), loan_id), &collateral)?;
 
     Ok(Response::new()
-        .add_attribute("action", "withdraw-collateral")
-        .add_attribute("event", "cancel-loan")
+        .add_attribute("action", "withdraw_collateral")
+        .add_attribute("event", "cancel_loan")
         .add_attribute("borrower", borrower)
         .add_attribute("loan_id", loan_id.to_string()))
 }
@@ -229,7 +247,7 @@ pub fn make_offer(
     )?;
 
     Ok(Response::new()
-        .add_attribute("action", "make-offer")
+        .add_attribute("action", "make_offer")
         .add_attribute("borrower", borrower)
         .add_attribute("lender", info.sender)
         .add_attribute("loan_id", loan_id.to_string())
@@ -271,8 +289,8 @@ pub fn cancel_offer(
 
     Ok(Response::new()
         .add_message(withdraw_response)
-        .add_attribute("action", "cancel-offer")
-        .add_attribute("action", "withdraw-funds")
+        .add_attribute("action", "cancel_offer")
+        .add_attribute("action", "withdraw_funds")
         .add_attribute("borrower", borrower)
         .add_attribute("lender", lender)
         .add_attribute("loan_id", loan_id.to_string())
@@ -307,8 +325,8 @@ pub fn withdraw_refused_offer(
 
     Ok(Response::new()
         .add_message(withdraw_message)
-        .add_attribute("action", "withdraw-funds")
-        .add_attribute("event", "refused-offer")
+        .add_attribute("action", "withdraw_funds")
+        .add_attribute("event", "refused_offer")
         .add_attribute("borrower", offer_info.borrower)
         .add_attribute("lender", lender)
         .add_attribute("loan_id", offer_info.loan_id.to_string())
@@ -365,8 +383,9 @@ pub fn refuse_offer(
     save_offer(deps.storage, &global_offer_id, offer_info.clone())?;
 
     Ok(Response::new()
-        .add_attribute("action", "refuse-offer")
+        .add_attribute("action", "refuse_offer")
         .add_attribute("borrower", borrower)
+        .add_attribute("loan_id", offer_info.loan_id.to_string())
         .add_attribute("lender", offer_info.lender)
         .add_attribute("global_offer_id", global_offer_id))
 }
@@ -390,24 +409,19 @@ pub fn accept_loan(
     let (global_offer_id, _offer_id) = _make_offer_raw(
         deps.storage,
         env.clone(),
-        info.clone(),
+        info,
         borrower_addr,
         loan_id,
-        terms.clone(),
+        terms,
         comment,
     )?;
 
     // Then we make the borrower accept the loan
-    let res = _accept_offer_raw(deps, env, global_offer_id.clone())?;
+    let res = _accept_offer_raw(deps, env, global_offer_id)?;
 
     Ok(res
-        .add_attribute("action", "start-loan")
-        .add_attribute("denom-borrowed", terms.principle.denom)
-        .add_attribute("amount_borrowed", terms.principle.amount.to_string())
-        .add_attribute("borrower", borrower)
-        .add_attribute("lender", info.sender)
-        .add_attribute("loan_id", loan_id.to_string())
-        .add_attribute("global_offer_id", global_offer_id))
+        .add_attribute("action_type", "accept_loan")
+    )
 }
 
 /// Accepts an offer without any owner checks
@@ -484,8 +498,8 @@ fn _accept_offer_raw(
     Ok(Response::new()
         .add_message(fund_messages)
         .add_messages(asset_messages)
-        .add_attribute("action", "start-loan")
-        .add_attribute("denom-borrowed", offer_info.terms.principle.denom)
+        .add_attribute("action", "start_loan")
+        .add_attribute("denom_borrowed", offer_info.terms.principle.denom)
         .add_attribute(
             "amount_borrowed",
             offer_info.terms.principle.amount.to_string(),
@@ -508,7 +522,12 @@ pub fn accept_offer(
     is_offer_borrower(deps.storage, info.sender, &global_offer_id)?;
 
     // We accept the offer
-    _accept_offer_raw(deps, env, global_offer_id)
+    let res = _accept_offer_raw(deps, env, global_offer_id)?;
+
+    Ok(res
+        .add_attribute("action_type", "accept_offer")
+    )
+    
 }
 
 /// Repay Borrowed funds and get back your collateral
@@ -575,7 +594,7 @@ pub fn repay_borrowed_funds(
 
     // And the collateral back to the borrower*
     res = res.add_messages(_withdraw_loan(
-            collateral.clone(),
+            collateral,
             env.contract.address,
             borrower.clone(),
         )?);
@@ -596,7 +615,7 @@ pub fn repay_borrowed_funds(
     }
 
     Ok(res
-        .add_attribute("action", "repay-loan")
+        .add_attribute("action", "repay_loan")
         .add_attribute("borrower", borrower)
         .add_attribute("lender", offer_info.lender)
         .add_attribute("loan_id", loan_id.to_string()))
@@ -632,7 +651,7 @@ pub fn withdraw_defaulted_loan(
 
     Ok(Response::new()
         .add_messages(withdraw_messages)
-        .add_attribute("action", "default-loan")
+        .add_attribute("action", "default_loan")
         .add_attribute("borrower", borrower)
         .add_attribute("lender", offer.lender)
         .add_attribute("loan_id", loan_id.to_string()))

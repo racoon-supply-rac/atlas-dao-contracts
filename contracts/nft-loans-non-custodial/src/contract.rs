@@ -52,7 +52,7 @@ pub fn instantiate(
     CONTRACT_INFO.save(deps.storage, &data)?;
     Ok(Response::default()
         .add_attribute("action", "initialization")
-        .add_attribute("contract", "p2p-loans"))
+        .add_attribute("contract", "p2p_loans"))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -62,12 +62,14 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> R
             tokens,
             terms,
             comment,
-        } => deposit_collaterals(deps, env, info, tokens, terms, comment),
+            loan_preview
+        } => deposit_collaterals(deps, env, info, tokens, terms, comment, loan_preview),
         ExecuteMsg::ModifyCollaterals {
             loan_id,
             terms,
             comment,
-        } => modify_collaterals(deps, env, info, loan_id, terms, comment),
+            loan_preview
+        } => modify_collaterals(deps, env, info, loan_id, terms, comment, loan_preview),
         ExecuteMsg::WithdrawCollaterals { loan_id } => {
             withdraw_collateral(deps, env, info, loan_id)
         }
