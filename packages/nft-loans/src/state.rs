@@ -67,7 +67,7 @@ pub enum LoanState {
     Started,
     Defaulted,
     Ended,
-    AssetWithdrawn,
+    Inactive,
 }
 
 #[cw_serde]

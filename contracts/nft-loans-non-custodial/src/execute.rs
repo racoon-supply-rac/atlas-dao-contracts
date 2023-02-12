@@ -158,7 +158,7 @@ pub fn withdraw_collateral(
     is_collateral_withdrawable(&collateral)?;
 
     // We update the internal state, the loan proposal is no longer valid
-    collateral.state = LoanState::AssetWithdrawn;
+    collateral.state = LoanState::Inactive;
     COLLATERAL_INFO.save(deps.storage, (borrower.clone(), loan_id), &collateral)?;
 
     Ok(Response::new()

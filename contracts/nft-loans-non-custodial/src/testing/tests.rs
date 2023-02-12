@@ -473,7 +473,7 @@ fn test_withdraw_collateral() {
                 token_id: "58".to_string()
             })],
             list_date: mock_env().block.time,
-            state: LoanState::AssetWithdrawn,
+            state: LoanState::Inactive,
             ..Default::default()
         }
     );
@@ -489,7 +489,7 @@ fn test_withdraw_collateral() {
                 token_id: "59".to_string()
             })],
             list_date: mock_env().block.time,
-            state: LoanState::AssetWithdrawn,
+            state: LoanState::Inactive,
             ..Default::default()
         }
     );
@@ -517,7 +517,7 @@ fn test_withdraw_collateral() {
     assert_error(
         repay_err,
         ContractError::WrongLoanState {
-            state: LoanState::AssetWithdrawn,
+            state: LoanState::Inactive,
         },
     )
 }
