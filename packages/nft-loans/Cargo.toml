@@ -30,8 +30,8 @@ cosmwasm-schema = { version = "1.0.0" }
 schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.23" }
-strum = "0.24"
-strum_macros = "0.24"
+strum = "0.25"
+strum_macros = "0.25.3"
 
 #Local Modules
 utils = { path = "../utils", version = "0.1.0" }

@@ -1,7 +1,6 @@
 use std::convert::TryInto;
 use strum_macros;
-use anyhow::{Result, bail};
-use cosmwasm_std::{coin, Addr, Binary, Coin, Env, Timestamp, Uint128, Decimal, StdError};
+use cosmwasm_std::{coin, Addr, Binary, Coin, Env, Timestamp, Uint128, Decimal, StdError, StdResult};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use utils::state::OwnerStruct;
@@ -43,10 +42,10 @@ pub struct Cw20Coin {
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum AssetInfo {
-    Cw20Coin(Cw20Coin),
+    // Cw20Coin(Cw20Coin),
     Cw721Coin(Cw721Coin),
-    Cw1155Coin(Cw1155Coin),
     Coin(Coin),
+    // Cw1155Coin(Cw1155Coin),
 }
 
 impl AssetInfo {
@@ -61,16 +60,16 @@ impl AssetInfo {
         })
     }
 
-    pub fn cw20(amount: u128, address: &str) -> Self {
-        AssetInfo::cw20_raw(Uint128::from(amount), address)
-    }
+    // pub fn cw20(amount: u128, address: &str) -> Self {
+    //     AssetInfo::cw20_raw(Uint128::from(amount), address)
+    // }
 
-    pub fn cw20_raw(amount: Uint128, address: &str) -> Self {
-        AssetInfo::Cw20Coin(Cw20Coin {
-            address: address.to_string(),
-            amount,
-        })
-    }
+    // pub fn cw20_raw(amount: Uint128, address: &str) -> Self {
+    //     AssetInfo::Cw20Coin(Cw20Coin {
+    //         address: address.to_string(),
+    //         amount,
+    //     })
+    // }
 
     pub fn cw721(address: &str, token_id: &str) -> Self {
         AssetInfo::Cw721Coin(Cw721Coin {
@@ -79,17 +78,17 @@ impl AssetInfo {
         })
     }
 
-    pub fn cw1155(address: &str, token_id: &str, value: u128) -> Self {
-        AssetInfo::cw1155_raw(address, token_id, Uint128::from(value))
-    }
+    // pub fn cw1155(address: &str, token_id: &str, value: u128) -> Self {
+    //     AssetInfo::cw1155_raw(address, token_id, Uint128::from(value))
+    // }
 
-    pub fn cw1155_raw(address: &str, token_id: &str, value: Uint128) -> Self {
-        AssetInfo::Cw1155Coin(Cw1155Coin {
-            address: address.to_string(),
-            token_id: token_id.to_string(),
-            value,
-        })
-    }
+    // pub fn cw1155_raw(address: &str, token_id: &str, value: Uint128) -> Self {
+    //     AssetInfo::Cw1155Coin(Cw1155Coin {
+    //         address: address.to_string(),
+    //         token_id: token_id.to_string(),
+    //         value,
+    //     })
+    // }
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, strum_macros::Display)]
@@ -122,10 +121,10 @@ pub struct ContractInfo {
 
 
 impl ContractInfo{
-    pub fn validate_fee(&self) -> Result<()>{
+    pub fn validate_fee(&self) -> StdResult<()>{
         // Check the fee distribution
         if self.raffle_fee + self.rand_fee >= Decimal::one(){
-            bail!(StdError::generic_err(
+            return Err(StdError::generic_err(
                 "The Total Fee rate should be lower than 1"
             ))
         }

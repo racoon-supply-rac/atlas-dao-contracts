@@ -1,8 +1,7 @@
 
 use cw20::Cw20ReceiveMsg;
-use anyhow::Result;
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{to_binary, Binary, CosmosMsg, StdError, StdResult, WasmMsg, Decimal};
+use cosmwasm_std::{to_json_binary, Binary, CosmosMsg, StdError, StdResult, WasmMsg, Decimal};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -20,13 +19,13 @@ fn is_valid_name(name: &str) -> bool {
 }
 
 pub fn into_binary<M: Serialize>(msg: M) -> StdResult<Binary> {
-    to_binary(&msg)
+    to_json_binary(&msg)
 }
 
 pub fn into_cosmos_msg<M: Serialize, T: Into<String>>(
     message: M,
     contract_addr: T,
-) -> Result<CosmosMsg> {
+) -> StdResult<CosmosMsg> {
     let msg = into_binary(message)?;
     let execute = WasmMsg::Execute {
         contract_addr: contract_addr.into(),
