@@ -13,9 +13,7 @@ use crate::error::ContractError;
 use raffles_export::state::{
     AssetInfo, Cw20Coin, RaffleInfo, RaffleOptions, RaffleOptionsMsg, RaffleState,
 };
-
-use cw1155::Cw1155ExecuteMsg;
-use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
+use cw20::Cw20ReceiveMsg;
 use cw721::Cw721ExecuteMsg;
 use raffles_export::msg::{into_cosmos_msg, DrandRandomness, ExecuteMsg};
 

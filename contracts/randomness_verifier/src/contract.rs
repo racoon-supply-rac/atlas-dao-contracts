@@ -49,17 +49,15 @@ pub fn execute_verify(
     raffle_id: u64,
     owner: String,
 ) -> StdResult<Response> {
-
     let pk = G1Pubkey::from_variable(&pubkey).unwrap();
 
     let round = randomness.round;
     let previous_signature = randomness.previous_signature.as_slice();
     let signature = randomness.signature.as_slice();
 
-    let valid = pk.verify(
-        round, &previous_signature, &signature
-    )
-    .unwrap_or(false);
+    let valid = pk
+        .verify(round, &previous_signature, &signature)
+        .unwrap_or(false);
 
     if !valid {
         return Err(StdError::generic_err("Invalid Signature"));
