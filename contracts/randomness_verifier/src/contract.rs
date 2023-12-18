@@ -4,7 +4,7 @@ use cosmwasm_std::{
     entry_point, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
 };
 
-use drand_verify::{derive_randomness, g1_from_variable, verify};
+use drand_verify::{derive_randomness, G1Pubkey, Pubkey};
 use raffles_export::msg::{DrandRandomness, VerifierExecuteMsg};
 
 #[cw_serde]
@@ -49,19 +49,21 @@ pub fn execute_verify(
     raffle_id: u64,
     owner: String,
 ) -> StdResult<Response> {
-    let pk = g1_from_variable(&pubkey).map_err(|_| StdError::generic_err("Invalid Public Key"))?;
-    let valid = verify(
-        &pk,
-        randomness.round,
-        randomness.previous_signature.as_slice(),
-        randomness.signature.as_slice(),
+
+    let pk = G1Pubkey::from_variable(&pubkey).unwrap();
+
+    let round = randomness.round;
+    let previous_signature = randomness.previous_signature.as_slice();
+    let signature = randomness.signature.as_slice();
+
+    let valid = pk.verify(
+        round, &previous_signature, &signature
     )
     .unwrap_or(false);
 
     if !valid {
         return Err(StdError::generic_err("Invalid Signature"));
     }
-
     let randomness_result = derive_randomness(&randomness.signature);
 
     Ok(Response::new()

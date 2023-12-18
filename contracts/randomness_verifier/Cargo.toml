@@ -1,6 +1,6 @@
 [package]
-name = "randomness_verifier"
-version = "0.9.0"
+name = "randomness-verifier"
+version = "0.10.0"
 authors = ["Nicolas KOWALSKI <kowalski.kowalskin@gmail.com>"]
 edition = "2018"
 description = "Verify contract for drand randomness"
@@ -21,7 +21,7 @@ cosmwasm-schema = { version = "1.1.0" }
 #Other Modules
 schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
-drand-verify = "0.1"
+drand-verify = "0.6.2"
 
 # Local Modules
 raffles-export = { path = "../../packages/raffles", version = "0.1.0" }

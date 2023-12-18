@@ -1,11 +1,10 @@
 use std::str::FromStr;
-use anyhow::Result;
 extern crate rustc_serialize as serialize;
 use serialize::base64::{self, ToBase64};
 use serialize::hex::FromHex;
 
 use cosmwasm_std::{
-    coin, coins, from_binary,
+    coin, coins, from_json,
     testing::{mock_dependencies, mock_env, mock_info, MOCK_CONTRACT_ADDR},
     Api, BankMsg, Binary, Coin, DepsMut, Event, Response, SubMsg, SubMsgResponse, SubMsgResult,
     Uint128, Decimal
@@ -57,7 +56,7 @@ fn init_helper(deps: DepsMut) {
     instantiate(deps, env, info, instantiate_msg).unwrap();
 }
 
-fn create_raffle(deps: DepsMut) -> Result<Response> {
+fn create_raffle(deps: DepsMut) -> Result<Response, ContractError> {
     let info = mock_info("creator", &[]);
     let env = mock_env();
 
@@ -77,7 +76,7 @@ fn create_raffle(deps: DepsMut) -> Result<Response> {
     )
 }
 
-fn cancel_raffle_helper(deps: DepsMut, caller: &str, raffle_id: u64) -> Result<Response> {
+fn cancel_raffle_helper(deps: DepsMut, caller: &str, raffle_id: u64) -> Result<Response, ContractError> {
     let info = mock_info(caller, &[]);
     let env = mock_env();
 
@@ -89,7 +88,7 @@ fn cancel_raffle_helper(deps: DepsMut, caller: &str, raffle_id: u64) -> Result<R
     )
 }
 
-fn create_raffle_comment(deps: DepsMut, comment: &str) -> Result<Response> {
+fn create_raffle_comment(deps: DepsMut, comment: &str) -> Result<Response, ContractError> {
     let info = mock_info("creator", &[]);
     let env = mock_env();
 
@@ -113,7 +112,7 @@ fn create_raffle_comment(deps: DepsMut, comment: &str) -> Result<Response> {
     )
 }
 
-fn create_raffle_cw20(deps: DepsMut) -> Result<Response> {
+fn create_raffle_cw20(deps: DepsMut) -> Result<Response, ContractError> {
     let info = mock_info("creator", &[]);
     let env = mock_env();
 
@@ -130,7 +129,7 @@ fn create_raffle_cw20(deps: DepsMut) -> Result<Response> {
     )
 }
 
-fn create_raffle_cw1155(deps: DepsMut) -> Result<Response> {
+fn create_raffle_cw1155(deps: DepsMut) -> Result<Response, ContractError> {
     let info = mock_info("creator", &[]);
     let env = mock_env();
 
@@ -154,7 +153,7 @@ fn buy_ticket_coin(
     c: Coin,
     delta: u64,
     ticket_number: Option<u32>,
-) -> Result<Response> {
+) -> Result<Response, ContractError> {
     let info = mock_info(buyer, &[c.clone()]);
     let mut env = mock_env();
     env.block.time = env.block.time.plus_seconds(delta);
@@ -177,7 +176,7 @@ fn buy_ticket_cw20(
     amount: u128,
     address: &str,
     delta: u64,
-) -> Result<Response> {
+) -> Result<Response, ContractError> {
     let info = mock_info(buyer, &[]);
     let mut env = mock_env();
     env.block.time = env.block.time.plus_seconds(delta);
@@ -193,7 +192,7 @@ fn buy_ticket_cw20(
     )
 }
 
-fn claim_nft(deps: DepsMut, raffle_id: u64, time_delta: u64) -> Result<Response> {
+fn claim_nft(deps: DepsMut, raffle_id: u64, time_delta: u64) -> Result<Response, ContractError> {
     let info = mock_info("creator", &[]);
     let mut env = mock_env();
     env.block.time = env.block.time.plus_seconds(time_delta);
@@ -246,7 +245,7 @@ fn test_create_and_cancel_raffle() {
     let err = cancel_raffle_helper(deps.as_mut(), "bad_person", 0).unwrap_err();
 
     assert_error(
-        err,
+        err.into(),
         ContractError::Unauthorized {  }
     );
     let response = cancel_raffle_helper(deps.as_mut(), "creator", 0).unwrap();
@@ -267,7 +266,7 @@ fn test_create_and_cancel_raffle() {
 
     // Can't cancel twice
     let err = cancel_raffle_helper(deps.as_mut(), "creator", 0).unwrap_err();
-    assert_error(err, ContractError::WrongStateForCancel { status: RaffleState::Cancelled })
+    assert_error(err.into(), ContractError::WrongStateForCancel { status: RaffleState::Cancelled })
 
 }
 
@@ -294,7 +293,7 @@ fn test_claim_raffle() {
 
     let claim_too_soon_error = claim_nft(deps.as_mut(), 0, 0u64).unwrap_err();
     assert_eq!(
-        claim_too_soon_error.downcast::<ContractError>().unwrap(),
+        claim_too_soon_error,
         ContractError::WrongStateForClaim {
             status: RaffleState::Started
         }
@@ -302,7 +301,7 @@ fn test_claim_raffle() {
 
     let claim_too_soon_error = claim_nft(deps.as_mut(), 0, 1000u64).unwrap_err();
     assert_eq!(
-        claim_too_soon_error.downcast::<ContractError>().unwrap(),
+        claim_too_soon_error,
         ContractError::WrongStateForClaim {
             status: RaffleState::Closed
         }
@@ -827,7 +826,7 @@ fn test_randomness_provider() {
     .unwrap_err();
 
     assert_eq!(
-        another_randomness.downcast::<ContractError>().unwrap(),
+        another_randomness,
         ContractError::RandomnessNotAccepted { current_round: 90 }
     );
 
@@ -844,7 +843,7 @@ fn test_randomness_provider() {
     .unwrap_err();
 
     assert_eq!(
-        another_randomness.downcast::<ContractError>().unwrap(),
+        another_randomness,
         ContractError::RandomnessNotAccepted { current_round: 90 }
     );
 
@@ -985,7 +984,7 @@ fn test_query_contract_info() {
     let env = mock_env();
     let response = query(deps.as_ref(), env, QueryMsg::ContractInfo {}).unwrap();
     assert_eq!(
-        from_binary::<ContractInfo>(&response).unwrap(),
+        from_json::<ContractInfo>(&response).unwrap(),
         ContractInfo {
             name: "nft-raffle".to_string(),
             owner: OwnerStruct::new(deps.api.addr_validate("creator").unwrap()),
@@ -1028,7 +1027,7 @@ fn test_query_raffle_info() {
     .unwrap();
 
     assert_eq!(
-        from_binary::<RaffleResponse>(&response).unwrap(),
+        from_json::<RaffleResponse>(&response).unwrap(),
         RaffleResponse {
             raffle_id: 1,
             raffle_state: RaffleState::Started,
@@ -1081,7 +1080,7 @@ fn test_query_all_raffle_info() {
     .unwrap();
 
     assert_eq!(
-        from_binary::<AllRafflesResponse>(&response)
+        from_json::<AllRafflesResponse>(&response)
             .unwrap()
             .raffles,
         vec![
@@ -1145,7 +1144,7 @@ fn test_query_all_raffle_info() {
     .unwrap();
 
     assert_eq!(
-        from_binary::<AllRafflesResponse>(&response)
+        from_json::<AllRafflesResponse>(&response)
             .unwrap()
             .raffles,
         vec![RaffleResponse {
@@ -1185,7 +1184,7 @@ fn test_query_all_raffle_info() {
     .unwrap();
 
     assert_eq!(
-        from_binary::<AllRafflesResponse>(&response)
+        from_json::<AllRafflesResponse>(&response)
             .unwrap()
             .raffles,
         vec![RaffleResponse {
@@ -1229,7 +1228,7 @@ fn test_query_all_raffle_info() {
         },
     )
     .unwrap();
-    let raffles = from_binary::<AllRafflesResponse>(&response)
+    let raffles = from_json::<AllRafflesResponse>(&response)
         .unwrap()
         .raffles;
     assert_eq!(raffles.len(), 1);
@@ -1252,7 +1251,7 @@ fn test_query_all_raffle_info() {
         },
     )
     .unwrap();
-    let raffles = from_binary::<AllRafflesResponse>(&response)
+    let raffles = from_json::<AllRafflesResponse>(&response)
         .unwrap()
         .raffles;
     assert_eq!(raffles.len(), 2);

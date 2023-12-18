@@ -1,10 +1,9 @@
 
-use anyhow::{anyhow, Result, bail};
+use cosmwasm_std::StdError;
 #[cfg(not(feature = "library"))]
-
 use cosmwasm_std::{Api, Deps, Env, Order, StdResult, WasmQuery};
 use cosmwasm_std::QueryRequest;
-use cosmwasm_std::to_binary;
+use cosmwasm_std::to_json_binary;
 use cosmwasm_std::Addr;
 
 use raffles_export::msg::AllRafflesResponse;
@@ -69,9 +68,9 @@ pub fn raffle_filter(
                     .iter()
                     .any(|asset| match asset {
                         AssetInfo::Coin(x) => x.denom == token.as_ref(),
-                        AssetInfo::Cw20Coin(x) => x.address == token.as_ref(),
                         AssetInfo::Cw721Coin(x) => x.address == token.as_ref(),
-                        AssetInfo::Cw1155Coin(x) => x.address == token.as_ref(),
+                        // AssetInfo::Cw20Coin(x) => x.address == token.as_ref(),
+                        // AssetInfo::Cw1155Coin(x) => x.address == token.as_ref(),
                     })
             }
             None => true,
@@ -87,7 +86,7 @@ pub fn query_ticket_number(
     _env: Env,
     raffle_id: u64,
     ticket_depositor: String,
-) -> Result<u32> {
+) -> StdResult<u32> {
     Ok(USER_TICKETS.load(
         deps.storage,
         (&deps.api.addr_validate(&ticket_depositor)?, raffle_id),
@@ -101,11 +100,12 @@ pub fn query_all_raffles(
     start_after: Option<u64>,
     limit: Option<u32>,
     filters: Option<QueryFilters>,
-) -> Result<AllRafflesResponse> {
+) -> StdResult<AllRafflesResponse> {
     if filters.is_some() && filters.clone().unwrap().ticket_depositor.is_some() {
         query_all_raffles_by_depositor(deps, env, start_after, limit, filters)
     } else {
         query_all_raffles_raw(deps, env, start_after, limit, filters)
+        .map_err(|err| StdError::from(err))
     }
 }
 
@@ -117,17 +117,17 @@ pub fn query_all_raffles_by_depositor(
     start_after: Option<u64>,
     limit: Option<u32>,
     filters: Option<QueryFilters>,
-) -> Result<AllRafflesResponse> {
+) -> StdResult<AllRafflesResponse> {
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
 
     let start = start_after.map(Bound::exclusive);
 
     let ticket_depositor = deps.api.addr_validate(
         &filters
-            .clone()
-            .ok_or_else(|| anyhow!(ContractError::Unauthorized {}))?
-            .ticket_depositor
-            .ok_or_else(|| anyhow!(ContractError::Unauthorized {}))?,
+    .clone()
+    .ok_or_else(|| StdError::generic_err("unauthorized"))?
+    .ticket_depositor
+    .ok_or_else(|| StdError::generic_err("unauthorized"))?
     )?;
 
     let mut raffles = USER_TICKETS
@@ -170,7 +170,7 @@ pub fn query_all_raffles_raw(
     start_after: Option<u64>,
     limit: Option<u32>,
     filters: Option<QueryFilters>,
-) -> Result<AllRafflesResponse> {
+) -> StdResult<AllRafflesResponse> {
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let start = start_after.map(Bound::exclusive);
 
@@ -209,7 +209,7 @@ pub fn query_all_tickets(
     raffle_id: u64,
     start_after: Option<u32>,
     limit: Option<u32>,
-) -> Result<Vec<String>> {
+) -> StdResult<Vec<String>> {
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let start = start_after.map(Bound::exclusive);
 
@@ -221,15 +221,15 @@ pub fn query_all_tickets(
         .collect()
 }
 
-pub fn is_nft_owner(deps: Deps, sender: Addr, nft_address: String, token_id: String) -> Result<()>{
+pub fn is_nft_owner(deps: Deps, sender: Addr, nft_address: String, token_id: String) -> Result<(), ContractError>{
 
     let owner_response: OwnerOfResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: nft_address,
-            msg: to_binary(&Cw721QueryMsg::OwnerOf { token_id, include_expired: None })?,
+            msg: to_json_binary(&Cw721QueryMsg::OwnerOf { token_id, include_expired: None })?,
         }))?;
 
     if owner_response.owner != sender{
-        bail!(ContractError::SenderNotOwner{})
+        return Err(ContractError::SenderNotOwner{})
     }
     Ok(())
 }

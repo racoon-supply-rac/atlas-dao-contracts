@@ -1,18 +1,13 @@
-use anyhow::{anyhow, bail, Result};
-use cosmwasm_std::entry_point;
+use cosmwasm_std::{entry_point, to_json_binary, StdResult};
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, Event, MessageInfo, Reply, Response, StdError,
+     Binary, Deps, DepsMut, Env, Event, MessageInfo, Reply, Response, StdError,
     SubMsgResult, Decimal
 };
 #[cfg(not(feature = "library"))]
 use std::convert::TryInto;
 use std::str::FromStr;
-
 use cw2::set_contract_version;
-
 use utils::state::OwnerStruct;
-
-
 use raffles_export::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, RaffleResponse};
 use raffles_export::state::{
     ContractInfo, Randomness, MINIMUM_RAFFLE_DURATION, MINIMUM_RAFFLE_TIMEOUT, MINIMUM_RAND_FEE,
@@ -37,7 +32,7 @@ pub fn instantiate(
     _env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
-) -> Result<Response> {
+) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     // Verify the contract name
@@ -83,7 +78,7 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> Result<Response> {
+pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::CreateRaffle {
             owner,
@@ -134,47 +129,47 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> R
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
     // No state migrations performed, just returned a Response
     Ok(Response::default())
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary> {
+pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary, StdError> {
     match msg {
-        QueryMsg::ContractInfo {} => to_binary(&query_contract_info(deps)?).map_err(|x| anyhow!(x)),
+        QueryMsg::ContractInfo {} => to_json_binary(&query_contract_info(deps)?),
         QueryMsg::RaffleInfo { raffle_id } => {
-            let raffle_info = load_raffle(deps.storage, raffle_id)?;
-            to_binary(&RaffleResponse {
+            let raffle_info = load_raffle(deps.storage, raffle_id)
+            .map_err(|err| StdError::generic_err(format!("Failed to load raffle: {:?}", err)))?;
+
+            // Using return to handle the error directly
+            return to_json_binary(&RaffleResponse {
                 raffle_id,
                 raffle_state: get_raffle_state(env, raffle_info.clone()),
                 raffle_info: Some(raffle_info),
-            })
-            .map_err(|x| anyhow!(x))
+            });
         }
 
         QueryMsg::AllRaffles {
             start_after,
             limit,
             filters,
-        } => to_binary(&query_all_raffles(deps, env, start_after, limit, filters)?)
-            .map_err(|x| anyhow!(x)),
+        } => to_json_binary(&query_all_raffles(deps, env, start_after, limit, filters)?),
 
         QueryMsg::AllTickets {
             raffle_id,
             start_after,
             limit,
-        } => to_binary(&query_all_tickets(
+        } => to_json_binary(&query_all_tickets(
             deps,
             env,
             raffle_id,
             start_after,
             limit,
-        )?)
-        .map_err(|x| anyhow!(x)),
+        )?),
 
         QueryMsg::TicketNumber { owner, raffle_id } => {
-            to_binary(&query_ticket_number(deps, env, raffle_id, owner)?).map_err(|x| anyhow!(x))
+            to_json_binary(&query_ticket_number(deps, env, raffle_id, owner)?)
         }
     }
 }
@@ -186,7 +181,7 @@ pub fn execute_toggle_lock(
     _env: Env,
     info: MessageInfo,
     lock: bool,
-) -> Result<Response> {
+) -> Result<Response, ContractError> {
     let mut contract_info = is_owner(deps.storage, info.sender)?;
 
     contract_info.lock = lock;
@@ -206,7 +201,7 @@ pub fn execute_change_parameter(
     info: MessageInfo,
     parameter: String,
     value: String,
-) -> Result<Response> {
+) -> Result<Response, ContractError> {
     let mut contract_info = is_owner(deps.storage, info.sender)?;
 
     match parameter.as_str() {
@@ -219,11 +214,15 @@ pub fn execute_change_parameter(
             contract_info.fee_addr = addr;
         }
         "minimum_raffle_duration" => {
-            let time = value.parse::<u64>()?;
+            let time = value.parse::<u64>()
+            .map_err(|err: std::num::ParseIntError| StdError::generic_err(format!("minimum_raffle_duration Error: {:?}", err)))?;
+
             contract_info.minimum_raffle_duration = time.max(MINIMUM_RAFFLE_DURATION);
         }
         "minimum_raffle_timeout" => {
-            let time = value.parse::<u64>()?;
+            let time = value.parse::<u64>()
+            .map_err(|err: std::num::ParseIntError| StdError::generic_err(format!("minimum_raffle_timeout Error: {:?}", err)))?;
+
             contract_info.minimum_raffle_timeout = time.max(MINIMUM_RAFFLE_TIMEOUT);
         }
         "raffle_fee" => {
@@ -244,7 +243,7 @@ pub fn execute_change_parameter(
         "random_pubkey" => {
             contract_info.random_pubkey = Binary::from_base64(&value)?;
         }
-        _ => return Err(anyhow!(ContractError::ParameterNotFound {})),
+        _ => return Err(ContractError::ParameterNotFound {}),
     }
 
     contract_info.validate_fee()?;
@@ -261,7 +260,7 @@ pub fn claim_ownership(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-) -> Result<Response> {
+) -> Result<Response, ContractError> {
 
     let mut contract_info = CONTRACT_INFO.load(deps.storage)?;
 
@@ -279,10 +278,10 @@ pub fn claim_ownership(
 /// We wrap the random validation in a message to make sure the transaction goes through.
 /// This may require too much gas for query
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response> {
+pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractError> {
     match msg.id {
         0 => Ok(verify(deps, env, msg.result)?),
-        _ => bail!(ContractError::Unauthorized {}),
+        _ => return Err(ContractError::Unauthorized {}),
     }
 }
 
@@ -290,7 +289,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response> {
 /// We used this architecture to make sure the verification passes (because a query may return early)
 /// We verify the randomness provided matches the current state of the contract (good round, good raffle_id...)
 /// We also save the new randomness in the contract
-pub fn verify(deps: DepsMut, _env: Env, msg: SubMsgResult) -> Result<Response> {
+pub fn verify(deps: DepsMut, _env: Env, msg: SubMsgResult) -> Result<Response, ContractError> {
     match msg {
         SubMsgResult::Ok(subcall) => {
             let event: Event = subcall
@@ -363,6 +362,6 @@ pub fn verify(deps: DepsMut, _env: Env, msg: SubMsgResult) -> Result<Response> {
                 .add_attribute("raffle_id", raffle_id.to_string())
                 .add_attribute("sender", owner))
         }
-        SubMsgResult::Err(_) => bail!(StdError::generic_err("err")),
+        SubMsgResult::Err(_) => return Err(ContractError::Std(StdError::generic_err("err"))),
     }
 }
