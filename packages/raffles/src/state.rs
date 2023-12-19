@@ -1,10 +1,9 @@
 use std::convert::TryInto;
 use strum_macros;
-use cosmwasm_std::{coin, Addr, Binary, Coin, Env, Timestamp, Uint128, Decimal, StdError, Empty};
+use cosmwasm_std::{coin, Addr, Binary, Coin, Env, Timestamp, Uint128, Decimal, StdError};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use utils::state::OwnerStruct;
-use sg721_base::Sg721Contract;
 
 /*
 pub const MINIMUM_RAFFLE_DURATION: u64 = 3600; // A raffle last at least 1 hour

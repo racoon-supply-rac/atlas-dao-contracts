@@ -1,9 +1,7 @@
 
-use cw20::Cw20ReceiveMsg;
 // use anyhow::Result;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{to_json_binary, Binary, CosmosMsg, StdError, StdResult, WasmMsg, Decimal};
-use cw20_base::ContractError;
 // use cw20_base::ContractError; 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

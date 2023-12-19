@@ -1,5 +1,5 @@
 use anyhow::Result;
-use cosmwasm_std::{to_binary, Binary, Coin, CosmosMsg, StdResult, WasmMsg};
+use cosmwasm_std::{to_json_binary, Binary, Coin, CosmosMsg, StdResult, WasmMsg};
 use serde::Serialize;
 
 pub fn is_valid_name(name: &str) -> bool {
@@ -11,7 +11,7 @@ pub fn is_valid_name(name: &str) -> bool {
 }
 
 pub fn into_binary<M: Serialize>(msg: M) -> StdResult<Binary> {
-    to_binary(&msg)
+    to_json_binary(&msg)
 }
 
 pub fn into_cosmos_msg<M: Serialize, T: Into<String>>(

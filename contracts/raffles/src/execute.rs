@@ -13,7 +13,7 @@ use cosmwasm_std::{
 
 use crate::error::ContractError;
 use raffles_export::state::{
-    AssetInfo, Cw20Coin, RaffleInfo, RaffleOptions, RaffleOptionsMsg, RaffleState,
+    AssetInfo, RaffleInfo, RaffleOptions, RaffleOptionsMsg, RaffleState,
 };
 
 // use cw1155::Cw1155ExecuteMsg;
@@ -301,7 +301,7 @@ pub fn execute_buy_tickets(
 pub fn execute_receive(
     deps: DepsMut,
     env: Env,
-    info: MessageInfo,
+    _info: MessageInfo,
     wrapper: Cw20ReceiveMsg
 ) -> Result<Response, ContractError> {
     let sender = deps.api.addr_validate(&wrapper.sender)?;
@@ -314,7 +314,7 @@ pub fn execute_receive(
             // First we make sure the received Asset is the one specified in the message
             match sent_assets.clone() {
                 AssetInfo::Coin(Coin {
-                    denom: denom,
+                    denom: _denom,
                     amount: amount_received,
                 }) => {
                     if  amount_received == wrapper.amount

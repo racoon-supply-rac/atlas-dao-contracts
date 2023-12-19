@@ -1,11 +1,8 @@
 
-use cosmwasm_std::StdError;
-use cosmwasm_std::to_json_binary;
 #[cfg(not(feature = "library"))]
 
-use cosmwasm_std::{Api, Deps, Env, Order, StdResult, WasmQuery};
+use cosmwasm_std::{Api, Deps, Env, Order, StdResult, WasmQuery, to_json_binary, StdError};
 use cosmwasm_std::QueryRequest;
-use cosmwasm_std::to_binary;
 use cosmwasm_std::Addr;
 
 use raffles_export::msg::AllRafflesResponse;
@@ -15,8 +12,8 @@ use cw_storage_plus::Bound;
 
 use cw721::{Cw721QueryMsg, OwnerOfResponse};
 
-use crate::error::ContractError;
 use crate::state::{get_raffle_state, load_raffle, CONTRACT_INFO, RAFFLE_INFO, USER_TICKETS, RAFFLE_TICKETS};
+
 use raffles_export::msg::QueryFilters;
 use raffles_export::state::{AssetInfo, ContractInfo, RaffleInfo, RaffleState};
 
