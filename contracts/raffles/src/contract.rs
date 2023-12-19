@@ -1,13 +1,18 @@
-use cosmwasm_std::{entry_point, to_json_binary, StdResult};
+// use anyhow::{anyhow, bail, Result};
+use cosmwasm_std::{entry_point, StdResult};
 use cosmwasm_std::{
-     Binary, Deps, DepsMut, Env, Event, MessageInfo, Reply, Response, StdError,
+    to_json_binary, Binary, Deps, DepsMut, Env, Event, MessageInfo, Reply, Response, StdError,
     SubMsgResult, Decimal
 };
 #[cfg(not(feature = "library"))]
 use std::convert::TryInto;
+use std::num::ParseIntError;
 use std::str::FromStr;
+
 use cw2::set_contract_version;
+
 use utils::state::OwnerStruct;
+
 use raffles_export::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, RaffleResponse};
 use raffles_export::state::{
     ContractInfo, Randomness, MINIMUM_RAFFLE_DURATION, MINIMUM_RAFFLE_TIMEOUT, MINIMUM_RAND_FEE,
@@ -33,6 +38,7 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
+
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     // Verify the contract name
@@ -68,7 +74,9 @@ pub fn instantiate(
         verify_signature_contract: deps.api.addr_validate(&msg.verify_signature_contract)?,
     };
 
+    // TODO: add fair-burn module?
     data.validate_fee()?;
+
 
     CONTRACT_INFO.save(deps.storage, &data)?;
     Ok(Response::default()
@@ -129,33 +137,28 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> R
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
     // No state migrations performed, just returned a Response
     Ok(Response::default())
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary, StdError> {
+pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::ContractInfo {} => to_json_binary(&query_contract_info(deps)?),
         QueryMsg::RaffleInfo { raffle_id } => {
-            let raffle_info = load_raffle(deps.storage, raffle_id)
-            .map_err(|err| StdError::generic_err(format!("Failed to load raffle: {:?}", err)))?;
-
-            // Using return to handle the error directly
-            return to_json_binary(&RaffleResponse {
+            let raffle_info = load_raffle(deps.storage, raffle_id)?;
+            to_json_binary(&RaffleResponse {
                 raffle_id,
                 raffle_state: get_raffle_state(env, raffle_info.clone()),
                 raffle_info: Some(raffle_info),
-            });
+            })
         }
-
         QueryMsg::AllRaffles {
             start_after,
             limit,
             filters,
         } => to_json_binary(&query_all_raffles(deps, env, start_after, limit, filters)?),
-
         QueryMsg::AllTickets {
             raffle_id,
             start_after,
@@ -167,9 +170,13 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary, StdError> {
             start_after,
             limit,
         )?),
-
         QueryMsg::TicketNumber { owner, raffle_id } => {
-            to_json_binary(&query_ticket_number(deps, env, raffle_id, owner)?)
+            to_json_binary(&query_ticket_number(
+                deps,
+                env,
+                raffle_id,
+                owner,
+            )?)
         }
     }
 }
@@ -215,14 +222,16 @@ pub fn execute_change_parameter(
         }
         "minimum_raffle_duration" => {
             let time = value.parse::<u64>()
-            .map_err(|err: std::num::ParseIntError| StdError::generic_err(format!("minimum_raffle_duration Error: {:?}", err)))?;
+            .map_err(|err: ParseIntError| StdError::generic_err(format!("minimum_raffle_duration Error: {:?}", err)))?;
 
             contract_info.minimum_raffle_duration = time.max(MINIMUM_RAFFLE_DURATION);
+            
         }
         "minimum_raffle_timeout" => {
             let time = value.parse::<u64>()
             .map_err(|err: std::num::ParseIntError| StdError::generic_err(format!("minimum_raffle_timeout Error: {:?}", err)))?;
 
+            
             contract_info.minimum_raffle_timeout = time.max(MINIMUM_RAFFLE_TIMEOUT);
         }
         "raffle_fee" => {
@@ -281,7 +290,7 @@ pub fn claim_ownership(
 pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractError> {
     match msg.id {
         0 => Ok(verify(deps, env, msg.result)?),
-        _ => return Err(ContractError::Unauthorized {}),
+        _ => Err(ContractError::Unauthorized {}),
     }
 }
 
@@ -362,6 +371,6 @@ pub fn verify(deps: DepsMut, _env: Env, msg: SubMsgResult) -> Result<Response, C
                 .add_attribute("raffle_id", raffle_id.to_string())
                 .add_attribute("sender", owner))
         }
-        SubMsgResult::Err(_) => return Err(ContractError::Std(StdError::generic_err("err"))),
+        SubMsgResult::Err(_) => Err(ContractError::Std(StdError::generic_err("err"))),
     }
 }

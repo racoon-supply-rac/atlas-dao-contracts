@@ -4,6 +4,8 @@ use crate::state::{
     get_raffle_owner_messages, get_raffle_state, get_raffle_winner, get_raffle_winner_messages,
     is_raffle_owner, ticket_cost, CONTRACT_INFO, RAFFLE_INFO, RAFFLE_TICKETS, USER_TICKETS,
 };
+use cosmwasm_std::{Coin, StdError};
+// use anyhow::{anyhow, bail, Result};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{
     from_json, Addr, CosmosMsg, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
@@ -13,7 +15,9 @@ use crate::error::ContractError;
 use raffles_export::state::{
     AssetInfo, Cw20Coin, RaffleInfo, RaffleOptions, RaffleOptionsMsg, RaffleState,
 };
-use cw20::Cw20ReceiveMsg;
+
+// use cw1155::Cw1155ExecuteMsg;
+use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 use cw721::Cw721ExecuteMsg;
 use raffles_export::msg::{into_cosmos_msg, DrandRandomness, ExecuteMsg};
 
@@ -54,9 +58,10 @@ pub fn execute_create_raffle(
     if contract_info.lock {
         return Err(ContractError::ContractIsLocked {});
     }
+
     // First we validate at least one asset was provided to the raffle (or else this is useless, we want the raffles to include NFTs)
     if all_assets.is_empty(){
-        return Err(ContractError::NoAssets {});
+        return Err(ContractError::NoAssets {  })
     }
 
 
@@ -78,12 +83,23 @@ pub fn execute_create_raffle(
 
                 into_cosmos_msg(message, token.address.clone())
             }
-                // ATLAS: remove cw1155 transfer-from
-            _ => Err(ContractError::WrongAssetType {}), 
+            // TODO: AssetInfo::Sg721Base()
 
+            // AssetInfo::Cw1155Coin(token) => {
+            //     let message = Cw1155ExecuteMsg::SendFrom {
+            //         from: info.sender.to_string(),
+            //         to: env.contract.address.clone().into(),
+            //         token_id: token.token_id.clone(),
+            //         value: token.value,
+            //         msg: None,
+            //     };
+
+            //     into_cosmos_msg(message, token.address.clone())
+            // }
+            _ => Err(StdError::generic_err("msg")),
 
         })
-        .collect::<Result<CosmosMsg>>()?;
+        .collect::<Result<Vec<CosmosMsg>, StdError>>()?;
     // Then we create the internal raffle structure
     let owner = owner.map(|x| deps.api.addr_validate(&x)).transpose()?;
     let raffle_id = _create_raffle(
@@ -182,7 +198,7 @@ pub fn execute_cancel_raffle(
     // Then we transfer the assets back to the owner
     let transfer_messages = get_raffle_owner_messages(env, raffle_info)?;
     Ok(Response::new()
-        .add_message(transfer_messages)
+        .add_messages(transfer_messages)
         .add_attribute("action", "cancel_raffle")
         .add_attribute("raffle_id", raffle_id.to_string()))
 }
@@ -243,18 +259,18 @@ pub fn execute_buy_tickets(
 ) -> Result<Response, ContractError> {
     // First we physcially transfer the AssetInfo
     let transfer_messages = match &assets {
-        // AssetInfo::Cw20Coin(token) => {
-        //     let message = Cw20ExecuteMsg::Transfer {
-        //         recipient: env.contract.address.clone().into(),
-        //         amount: token.amount,
-        //     };
+        AssetInfo::Cw20Coin(token) => {
+            let message = Cw20ExecuteMsg::Transfer {
+                recipient: env.contract.address.clone().into(),
+                amount: token.amount,
+            };
 
-        //     vec![into_cosmos_msg(message, token.address.clone())?]
-        // }
+            vec![into_cosmos_msg(message, token.address.clone())?]
+        }
         // or verify the sent coins match the message coins
         AssetInfo::Coin(coin) => {
             if coin.amount != Uint128::zero() && (info.funds.len() != 1 || info.funds[0].denom != coin.denom || info.funds[0].amount != coin.amount){
-                return Err(ContractError::AssetMismatch {});
+               return Err(ContractError::AssetMismatch {});
             }
             vec![]
         }
@@ -297,12 +313,11 @@ pub fn execute_receive(
         } => {
             // First we make sure the received Asset is the one specified in the message
             match sent_assets.clone() {
-                AssetInfo::Cw20Coin(Cw20Coin {
-                    address: address_received,
+                AssetInfo::Coin(Coin {
+                    denom: denom,
                     amount: amount_received,
                 }) => {
-                    if deps.api.addr_validate(&address_received)? == info.sender
-                        && amount_received == wrapper.amount
+                    if  amount_received == wrapper.amount
                     {
                         // The asset is a match, we can create the raffle object and return
                         _buy_tickets(
@@ -461,7 +476,7 @@ pub fn execute_claim(
         get_raffle_owner_finished_messages(deps.storage, env, raffle_info.clone())?;
     // We distribute the ticket prices to the owner and in part to the treasury
     Ok(Response::new()
-        .add_message(winner_transfer_messages)
+        .add_messages(winner_transfer_messages)
         .add_messages(funds_transfer_messages)
         .add_attribute("action", "claim")
         .add_attribute("raffle_id", raffle_id.to_string())

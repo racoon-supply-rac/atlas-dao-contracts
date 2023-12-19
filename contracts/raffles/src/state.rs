@@ -1,4 +1,5 @@
-use cosmwasm_std::{Coin, Empty, ensure};
+// use anyhow::anyhow;
+use cosmwasm_std::{Coin, StdResult};
 use cw_storage_plus::{Item, Map};
 
 use cosmwasm_std::{
@@ -8,8 +9,12 @@ use cosmwasm_std::{
 use crate::error::ContractError;
 use crate::rand::Prng;
 use raffles_export::msg::{into_cosmos_msg, DrandRandomness, VerifierExecuteMsg};
-use raffles_export::state::{AssetInfo, ContractInfo, RaffleInfo, RaffleState};
-use cw721::Cw721ExecuteMsg;
+use raffles_export::state::{AssetInfo, ContractInfo, Cw20Coin, RaffleInfo, RaffleState};
+
+// use cw1155::Cw1155ExecuteMsg;
+use cw20::Cw20ExecuteMsg;
+// use cw721::Cw721ExecuteMsg;
+// use sg721::ExecuteMsg;
 
 pub const CONTRACT_INFO: Item<ContractInfo> = Item::new("contract_info");
 pub const RAFFLE_INFO: Map<u64, RaffleInfo> = Map::new("raffle_info");
@@ -33,7 +38,7 @@ pub fn assert_randomness_origin_and_order(
 
     if let Some(local_randomness) = raffle_info.randomness {
         if randomness.round <= local_randomness.randomness_round {
-            return Err(ContractError::RandomnessNotAccepted {
+           return Err(ContractError::RandomnessNotAccepted {
                 current_round: local_randomness.randomness_round
             });
         }
@@ -132,10 +137,9 @@ pub fn get_raffle_state(env: Env, raffle_info: RaffleInfo) -> RaffleState {
     }
 }
 
-pub fn load_raffle(storage: &dyn Storage, raffle_id: u64) -> Result<RaffleInfo, ContractError> {
+pub fn load_raffle(storage: &dyn Storage, raffle_id: u64) -> StdResult<RaffleInfo> {
     RAFFLE_INFO
         .load(storage, raffle_id)
-        .map_err(|_| ContractError::NotFoundInRaffleInfo {})
 }
 
 /// Can only buy a ticket when the raffle has started and is not closed
@@ -154,22 +158,22 @@ pub fn ticket_cost(raffle_info: RaffleInfo, ticket_number: u32) -> Result<AssetI
             denom: x.denom,
             amount: Uint128::from(ticket_number) * x.amount,
         }),
-        // AssetInfo::Cw20Coin(x) => AssetInfo::Cw20Coin(Cw20Coin {
-        //     address: x.address,
-        //     amount: Uint128::from(ticket_number) * x.amount,
-        // }),
+        AssetInfo::Cw20Coin(x) => AssetInfo::Cw20Coin(Cw20Coin {
+            address: x.address,
+            amount: Uint128::from(ticket_number) * x.amount,
+        }),
         _ => return Err(ContractError::WrongAssetType {}),
     })
 }
 
 /// Util to get the winner messages to return when claiming a Raffle (returns the raffled asset)
-pub fn get_raffle_winner_messages(env: Env, raffle_info: RaffleInfo) -> Result<CosmosMsg, ContractError> {
+pub fn get_raffle_winner_messages(env: Env, raffle_info: RaffleInfo) -> Result<Vec<CosmosMsg>, ContractError> {
     let winner: Addr = raffle_info.winner.clone().unwrap();
     _get_raffle_end_asset_messages(env, raffle_info, winner.to_string())
 }
 
 /// Util to get the raffle creator messages to return when the Raffle is cancelled (returns the raffled asset)
-pub fn get_raffle_owner_messages(env: Env, raffle_info: RaffleInfo) -> Result<CosmosMsg, ContractError> {
+pub fn get_raffle_owner_messages(env: Env, raffle_info: RaffleInfo) -> Result<Vec<CosmosMsg>, ContractError> {
     let owner: Addr = raffle_info.owner.clone();
     _get_raffle_end_asset_messages(env, raffle_info, owner.to_string())
 }
@@ -179,29 +183,31 @@ fn _get_raffle_end_asset_messages(
     env: Env,
     raffle_info: RaffleInfo,
     receiver: String,
-) -> Result<Vec<CosmosMsg>> {
+) -> Result<Vec<CosmosMsg>, ContractError> {
     raffle_info
         .assets
         .iter()
         .map(|asset| match asset {
-            AssetInfo::Cw721Coin(nft) => {
-                let message = Cw721ExecuteMsg::TransferNft {
-                    recipient: receiver.clone(),
-                    token_id: nft.token_id.clone(),
-                };
-                into_cosmos_msg(message, nft.address.clone())
-            }
-            AssetInfo::Cw1155Coin(cw1155) => {
-                let message = Cw1155ExecuteMsg::SendFrom {
-                    from: env.contract.address.to_string(),
-                    to: receiver.clone(),
-                    token_id: cw1155.token_id.clone(),
-                    value: cw1155.value,
-                    msg: None,
-                };
-                into_cosmos_msg(message, cw1155.address.clone())
-            }
-            _ => bail!(ContractError::Unreachable {}),
+
+            // AssetInfo::Cw721Coin(nft) => {
+            //     let message = Cw721ExecuteMsg::TransferNft {
+            //         recipient: receiver.clone(),
+            //         token_id: nft.token_id.clone(),
+            //     };
+            //     into_cosmos_msg(message, nft.address.clone())
+            // }
+            // TODO: Add asset information 
+            // AssetInfo::Cw1155Coin(cw1155) => {
+            //     let message = Cw1155ExecuteMsg::SendFrom {
+            //         from: env.contract.address.to_string(),
+            //         to: receiver.clone(),
+            //         token_id: cw1155.token_id.clone(),
+            //         value: cw1155.value,
+            //         msg: None,
+            //     };
+            //     into_cosmos_msg(message, cw1155.address.clone())
+            // }
+            _ => return Err(ContractError::Unreachable {}),
         })
         .collect()
 }
@@ -216,7 +222,7 @@ pub fn get_raffle_owner_finished_messages(
 
     // We start by splitting the fees between owner, treasury and radomness provider
     let total_paid = match raffle_info.raffle_ticket_price.clone() {
-        // AssetInfo::Cw20Coin(coin) => coin.amount,
+        AssetInfo::Cw20Coin(coin) => coin.amount,
         AssetInfo::Coin(coin) => coin.amount,
         _ => return Err(ContractError::WrongFundsType {}),
     } * Uint128::from(raffle_info.number_of_tickets);
@@ -226,37 +232,37 @@ pub fn get_raffle_owner_finished_messages(
 
     // Then we craft the messages needed for asset transfers
     match raffle_info.raffle_ticket_price {
-        // AssetInfo::Cw20Coin(coin) => {
-        //     let mut messages: Vec<CosmosMsg> = vec![];
-        //     if rand_amount != Uint128::zero() {
-        //         messages.push(into_cosmos_msg(
-        //             Cw20ExecuteMsg::Transfer {
-        //                 recipient: raffle_info.randomness.unwrap().randomness_owner.to_string(),
-        //                 amount: rand_amount,
-        //             },
-        //             coin.address.clone(),
-        //         )?);
-        //     };
-        //     if treasury_amount != Uint128::zero() {
-        //         messages.push(into_cosmos_msg(
-        //             Cw20ExecuteMsg::Transfer {
-        //                 recipient: contract_info.fee_addr.to_string(),
-        //                 amount: treasury_amount,
-        //             },
-        //             coin.address.clone(),
-        //         )?);
-        //     };
-        //     if owner_amount != Uint128::zero() {
-        //         messages.push(into_cosmos_msg(
-        //             Cw20ExecuteMsg::Transfer {
-        //                 recipient: raffle_info.owner.to_string(),
-        //                 amount: owner_amount,
-        //             },
-        //             coin.address,
-        //         )?);
-        //     };
-        //     Ok(messages)
-        // }
+        AssetInfo::Cw20Coin(coin) => {
+            let mut messages: Vec<CosmosMsg> = vec![];
+            if rand_amount != Uint128::zero() {
+                messages.push(into_cosmos_msg(
+                    Cw20ExecuteMsg::Transfer {
+                        recipient: raffle_info.randomness.unwrap().randomness_owner.to_string(),
+                        amount: rand_amount,
+                    },
+                    coin.address.clone(),
+                )?);
+            };
+            if treasury_amount != Uint128::zero() {
+                messages.push(into_cosmos_msg(
+                    Cw20ExecuteMsg::Transfer {
+                        recipient: contract_info.fee_addr.to_string(),
+                        amount: treasury_amount,
+                    },
+                    coin.address.clone(),
+                )?);
+            };
+            if owner_amount != Uint128::zero() {
+                messages.push(into_cosmos_msg(
+                    Cw20ExecuteMsg::Transfer {
+                        recipient: raffle_info.owner.to_string(),
+                        amount: owner_amount,
+                    },
+                    coin.address,
+                )?);
+            };
+            Ok(messages)
+        }
         AssetInfo::Coin(coin) => {
             let mut messages: Vec<CosmosMsg> = vec![];
             if rand_amount != Uint128::zero() {

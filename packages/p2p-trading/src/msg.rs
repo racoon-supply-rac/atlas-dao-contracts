@@ -1,6 +1,6 @@
 use crate::state::{AssetInfo, Comment, CounterTradeInfo, TradeInfo, TradeState};
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, Binary, CosmosMsg, StdError, StdResult, Timestamp, WasmMsg,
+    from_binary, to_binary, Addr, Binary, CosmosMsg, StdError, StdResult, Timestamp, WasmMsg, from_json, to_json_binary,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -16,7 +16,7 @@ fn is_valid_name(name: &str) -> bool {
 }
 
 pub fn into_binary<M: Serialize>(msg: M) -> StdResult<Binary> {
-    to_binary(&msg)
+    to_json_binary(&msg)
 }
 
 pub fn into_cosmos_msg<M: Serialize, T: Into<String>>(
@@ -278,7 +278,7 @@ impl TryFrom<TradeInfo> for TradeInfoResponse {
                     .additional_info
                     .tokens_wanted
                     .iter()
-                    .map(from_binary)
+                    .map(from_json)
                     .collect::<Result<Vec<AssetInfo>, StdError>>()?,
                 trade_preview: trade_info.additional_info.trade_preview,
             },

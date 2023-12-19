@@ -22,16 +22,16 @@ overflow-checks = true
 
 [dependencies]
 # CosmWasm
-cw2 = "1.1.2"
-cw20 = "1.1.2"
-cw721 = "0.18.0"
-cw1155 = "0.16.0"
-cw-storage-plus = "1.2.0"
-cw20-base = { version = "1.1.2", features = ["library"] }
+cw2 = "0.13.0"
+cw20 = "0.13.0"
+cw721 = "0.13.0"
+cw1155 = "0.13.0"
+cw-storage-plus = "0.13.0"
+cw20-base = { version = "0.13.0", features = ["library"] }
 cosmwasm-std = { version = "1.0.0" }
 
 # Other Modules
-itertools = "0.12.0"
+itertools = "0.10.3"
 schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.23" }

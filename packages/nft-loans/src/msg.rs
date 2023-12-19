@@ -30,6 +30,7 @@ impl InstantiateMsg {
             ))
         }
 
+
         Ok(())
     }
 }

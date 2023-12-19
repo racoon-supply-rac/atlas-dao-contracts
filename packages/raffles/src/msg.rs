@@ -1,7 +1,10 @@
 
 use cw20::Cw20ReceiveMsg;
+// use anyhow::Result;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{to_json_binary, Binary, CosmosMsg, StdError, StdResult, WasmMsg, Decimal};
+use cw20_base::ContractError;
+// use cw20_base::ContractError; 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -93,7 +96,7 @@ pub enum ExecuteMsg {
         ticket_number: u32,
         sent_assets: AssetInfo,
     },
-    Receive(Cw20ReceiveMsg),
+    Receive(cw20::Cw20ReceiveMsg),
     ClaimNft {
         raffle_id: u64,
     },
