@@ -1,9 +1,11 @@
 
 use cosmwasm_std::StdError;
+use cosmwasm_std::to_json_binary;
 #[cfg(not(feature = "library"))]
+
 use cosmwasm_std::{Api, Deps, Env, Order, StdResult, WasmQuery};
 use cosmwasm_std::QueryRequest;
-use cosmwasm_std::to_json_binary;
+use cosmwasm_std::to_binary;
 use cosmwasm_std::Addr;
 
 use raffles_export::msg::AllRafflesResponse;
@@ -12,6 +14,7 @@ use raffles_export::msg::RaffleResponse;
 use cw_storage_plus::Bound;
 
 use cw721::{Cw721QueryMsg, OwnerOfResponse};
+
 use crate::error::ContractError;
 use crate::state::{get_raffle_state, load_raffle, CONTRACT_INFO, RAFFLE_INFO, USER_TICKETS, RAFFLE_TICKETS};
 use raffles_export::msg::QueryFilters;
@@ -68,9 +71,10 @@ pub fn raffle_filter(
                     .iter()
                     .any(|asset| match asset {
                         AssetInfo::Coin(x) => x.denom == token.as_ref(),
+                        AssetInfo::Cw20Coin(x) => x.address == token.as_ref(),
                         AssetInfo::Cw721Coin(x) => x.address == token.as_ref(),
-                        // AssetInfo::Cw20Coin(x) => x.address == token.as_ref(),
-                        // AssetInfo::Cw1155Coin(x) => x.address == token.as_ref(),
+                        AssetInfo::Cw1155Coin(x) => x.address == token.as_ref(),
+                        AssetInfo::Sg721Token(x) => x.address == token.as_ref(),
                     })
             }
             None => true,
@@ -105,7 +109,6 @@ pub fn query_all_raffles(
         query_all_raffles_by_depositor(deps, env, start_after, limit, filters)
     } else {
         query_all_raffles_raw(deps, env, start_after, limit, filters)
-        .map_err(|err| StdError::from(err))
     }
 }
 
@@ -124,10 +127,10 @@ pub fn query_all_raffles_by_depositor(
 
     let ticket_depositor = deps.api.addr_validate(
         &filters
-    .clone()
-    .ok_or_else(|| StdError::generic_err("unauthorized"))?
-    .ticket_depositor
-    .ok_or_else(|| StdError::generic_err("unauthorized"))?
+            .clone()
+            .ok_or_else(|| StdError::generic_err("unauthorized"))?
+            .ticket_depositor
+            .ok_or_else(|| StdError::generic_err("unauthorized"))?
     )?;
 
     let mut raffles = USER_TICKETS
@@ -221,7 +224,7 @@ pub fn query_all_tickets(
         .collect()
 }
 
-pub fn is_nft_owner(deps: Deps, sender: Addr, nft_address: String, token_id: String) -> Result<(), ContractError>{
+pub fn is_nft_owner(deps: Deps, sender: Addr, nft_address: String, token_id: String) -> Result<(), StdError>{
 
     let owner_response: OwnerOfResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: nft_address,
@@ -229,7 +232,7 @@ pub fn is_nft_owner(deps: Deps, sender: Addr, nft_address: String, token_id: Str
         }))?;
 
     if owner_response.owner != sender{
-        return Err(ContractError::SenderNotOwner{})
+       return Err(StdError::generic_err("unauthorized"))
     }
     Ok(())
 }
