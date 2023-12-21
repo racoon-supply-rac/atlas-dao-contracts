@@ -281,7 +281,7 @@ pub fn execute_buy_tickets(
             }
             vec![]
         }
-        _ => return Err(ContractError::WrongAssetType {}),
+        // _ => return Err(ContractError::WrongAssetType {}),
     };
 
     // Then we verify the funds sent match the raffle conditions and we save the ticket that was bought
