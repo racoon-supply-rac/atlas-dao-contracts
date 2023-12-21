@@ -1,4 +1,4 @@
-use cosmwasm_std::{to_binary, Addr, Deps, QueryRequest, StdError, StdResult, WasmQuery};
+use cosmwasm_std::{to_json_binary, Addr, Deps, QueryRequest, StdError, StdResult, WasmQuery};
 
 use crate::msg::QueryMsg as P2PQueryMsg;
 use crate::state::TradeInfo;
@@ -33,7 +33,7 @@ pub fn load_trade_and_accepted_counter_trade(
 pub fn load_trade(deps: Deps, p2p_contract: Addr, trade_id: u64) -> StdResult<TradeInfo> {
     deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
         contract_addr: p2p_contract.to_string(),
-        msg: to_binary(&P2PQueryMsg::TradeInfo { trade_id })?,
+        msg: to_json_binary(&P2PQueryMsg::TradeInfo { trade_id })?,
     }))
 }
 
@@ -46,7 +46,7 @@ pub fn load_counter_trade(
 ) -> StdResult<TradeInfo> {
     deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
         contract_addr: p2p_contract.to_string(),
-        msg: to_binary(&P2PQueryMsg::CounterTradeInfo {
+        msg: to_json_binary(&P2PQueryMsg::CounterTradeInfo {
             trade_id,
             counter_id,
         })?,

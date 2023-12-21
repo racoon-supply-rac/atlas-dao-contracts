@@ -1,10 +1,9 @@
 use std::convert::TryInto;
 use strum_macros;
-use cosmwasm_std::{coin, Addr, Binary, Coin, Env, Timestamp, Uint128, Decimal, StdError, Empty};
+use cosmwasm_std::{coin, Addr, Binary, Coin, Env, Timestamp, Uint128, Decimal, StdError};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use utils::state::OwnerStruct;
-use sg721_base::Sg721Contract;
 
 /*
 pub const MINIMUM_RAFFLE_DURATION: u64 = 3600; // A raffle last at least 1 hour
@@ -18,13 +17,13 @@ pub const MINIMUM_RAFFLE_TIMEOUT: u64 = 120; // The raffle timeout is a least 2 
 pub const DECIMAL_FRACTIONAL: u128 = 1_000_000_000_000_000_000u128; // 1*10**18
 pub const MINIMUM_RAND_FEE: Decimal = Decimal::raw(DECIMAL_FRACTIONAL/10_000u128); // The randomness provider gets at least 1/10_000 of the total raffle price
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct Cw1155Coin {
-    pub address: String,
-    pub token_id: String,
-    pub value: Uint128,
-}
+// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+// #[serde(rename_all = "snake_case")]
+// pub struct Cw1155Coin {
+//     pub address: String,
+//     pub token_id: String,
+//     pub value: Uint128,
+// }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -55,11 +54,11 @@ pub struct Sg721Token {
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum AssetInfo<> {
-    Cw20Coin(Cw20Coin),
+    // Cw20Coin(Cw20Coin),
     Cw721Coin(Cw721Coin),
-    Cw1155Coin(Cw1155Coin),
-    Sg721Token(Sg721Token),
+    // Sg721Token(Sg721Token),
     Coin(Coin),
+    // Cw1155Coin(Cw1155Coin),
 }
 
 impl AssetInfo {
@@ -74,35 +73,35 @@ impl AssetInfo {
         })
     }
 
-    pub fn cw20(amount: u128, address: &str) -> Self {
-        AssetInfo::cw20_raw(Uint128::from(amount), address)
-    }
-
-    pub fn cw20_raw(amount: Uint128, address: &str) -> Self {
-        AssetInfo::Cw20Coin(Cw20Coin {
-            address: address.to_string(),
-            amount,
-        })
-    }
-
     pub fn cw721(address: &str, token_id: &str) -> Self {
         AssetInfo::Cw721Coin(Cw721Coin {
             address: address.to_string(),
             token_id: token_id.to_string(),
         })
     }
+    // pub fn cw20(amount: u128, address: &str) -> Self {
+    //     AssetInfo::cw20_raw(Uint128::from(amount), address)
+    // }
 
-    pub fn cw1155(address: &str, token_id: &str, value: u128) -> Self {
-        AssetInfo::cw1155_raw(address, token_id, Uint128::from(value))
-    }
+    // pub fn cw20_raw(amount: Uint128, address: &str) -> Self {
+    //     AssetInfo::Cw20Coin(Cw20Coin {
+    //         address: address.to_string(),
+    //         amount,
+    //     })
+    // }
 
-    pub fn cw1155_raw(address: &str, token_id: &str, value: Uint128) -> Self {
-        AssetInfo::Cw1155Coin(Cw1155Coin {
-            address: address.to_string(),
-            token_id: token_id.to_string(),
-            value,
-        })
-    }
+
+    // pub fn cw1155(address: &str, token_id: &str, value: u128) -> Self {
+    //     AssetInfo::cw1155_raw(address, token_id, Uint128::from(value))
+    // }
+
+    // pub fn cw1155_raw(address: &str, token_id: &str, value: Uint128) -> Self {
+    //     AssetInfo::Cw1155Coin(Cw1155Coin {
+    //         address: address.to_string(),
+    //         token_id: token_id.to_string(),
+    //         value,
+    //     })
+    // }
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, strum_macros::Display)]

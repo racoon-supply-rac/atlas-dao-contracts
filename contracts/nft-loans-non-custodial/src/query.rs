@@ -1,45 +1,41 @@
-use cosmwasm_std::QueryRequest;
-use cosmwasm_std::to_binary;
-use cosmwasm_std::Addr;
 use crate::error::ContractError;
-use crate::state::get_actual_state;
-use crate::state::get_offer;
-use crate::state::lender_offers;
-use crate::state::BORROWER_INFO;
-use crate::state::COLLATERAL_INFO;
-use cosmwasm_std::StdError;
-use cosmwasm_std::{Deps, Order, StdResult, WasmQuery};
-use cw721::Cw721QueryMsg;
-use cw721::{OwnerOfResponse};
+use crate::state::{get_actual_state, get_offer, lender_offers, BORROWER_INFO, COLLATERAL_INFO};
+use cosmwasm_std::{to_json_binary, Addr, QueryRequest};
+use cosmwasm_std::{Deps, Order, StdError, StdResult, WasmQuery};
+use cw721::{Cw721QueryMsg, OwnerOfResponse};
 use cw_storage_plus::Bound;
-use nft_loans_export::msg::CollateralResponse;
-use nft_loans_export::msg::MultipleCollateralsAllResponse;
-use nft_loans_export::msg::MultipleCollateralsResponse;
-use nft_loans_export::msg::MultipleOffersResponse;
-use nft_loans_export::msg::OfferResponse;
-use nft_loans_export::state::BorrowerInfo;
-use nft_loans_export::state::CollateralInfo;
+use nft_loans_export::msg::{
+    CollateralResponse, MultipleCollateralsAllResponse, MultipleCollateralsResponse,
+    MultipleOffersResponse, OfferResponse,
+};
+use nft_loans_export::state::{BorrowerInfo,CollateralInfo};
+
+
 #[cfg(not(feature = "library"))]
 use nft_loans_export::state::ContractInfo;
 
 use crate::state::CONTRACT_INFO;
-use anyhow::{anyhow, Result, bail};
+
 // settings for pagination
 const MAX_QUERY_LIMIT: u32 = 150;
 const DEFAULT_QUERY_LIMIT: u32 = 10;
 
-pub fn query_contract_info(deps: Deps) -> Result<ContractInfo> {
-    CONTRACT_INFO.load(deps.storage).map_err(|err| anyhow!(err))
+pub fn query_contract_info(deps: Deps) -> StdResult<ContractInfo> {
+    CONTRACT_INFO.load(deps.storage).map_err(|err| err)
 }
 
-pub fn query_collateral_info(deps: Deps, borrower: String, loan_id: u64) -> Result<CollateralInfo> {
+pub fn query_collateral_info(
+    deps: Deps,
+    borrower: String,
+    loan_id: u64,
+) -> StdResult<CollateralInfo> {
     let borrower = deps.api.addr_validate(&borrower)?;
     COLLATERAL_INFO
         .load(deps.storage, (borrower, loan_id))
-        .map_err(|err| anyhow!(err))
+        .map_err(|err| err)
 }
 
-pub fn query_offer_info(deps: Deps, global_offer_id: String) -> Result<OfferResponse> {
+pub fn query_offer_info(deps: Deps, global_offer_id: String) -> StdResult<OfferResponse> {
     let offer_info = get_offer(deps.storage, &global_offer_id)?;
 
     Ok(OfferResponse {
@@ -60,7 +56,7 @@ pub fn query_collaterals(
     borrower: String,
     start_after: Option<u64>,
     limit: Option<u32>,
-) -> Result<MultipleCollateralsResponse> {
+) -> StdResult<MultipleCollateralsResponse> {
     let borrower = deps.api.addr_validate(&borrower)?;
     let limit = limit.unwrap_or(DEFAULT_QUERY_LIMIT).min(MAX_QUERY_LIMIT) as usize;
     let start = start_after.map(Bound::exclusive);
@@ -75,10 +71,10 @@ pub fn query_collaterals(
                     loan_id,
                     collateral: el,
                 })
-                .map_err(|err| anyhow!(err))
+                .map_err(|err| err)
         })
         .take(limit)
-        .collect::<Result<Vec<CollateralResponse>>>()?;
+        .collect::<Result<Vec<CollateralResponse>, StdError>>()?;
 
     Ok(MultipleCollateralsResponse {
         next_collateral: if collaterals.len() == limit {
@@ -94,10 +90,10 @@ pub fn query_all_collaterals(
     deps: Deps,
     start_after: Option<(String, u64)>,
     limit: Option<u32>,
-) -> Result<MultipleCollateralsAllResponse> {
+) -> StdResult<MultipleCollateralsAllResponse> {
     let limit = limit.unwrap_or(DEFAULT_QUERY_LIMIT).min(MAX_QUERY_LIMIT) as usize;
     let start = start_after
-        .map::<Result<Bound<_>>, _>(|start_after| {
+        .map::<Result<Bound<_>, StdError>, _>(|start_after| {
             let borrower = deps.api.addr_validate(&start_after.0)?;
             Ok(Bound::exclusive((borrower, start_after.1)))
         })
@@ -112,10 +108,10 @@ pub fn query_all_collaterals(
                     loan_id: loan_id.1,
                     collateral: el,
                 })
-                .map_err(|err| anyhow!(err))
+                .map_err(|err| err)
         })
         .take(limit)
-        .collect::<Result<Vec<CollateralResponse>>>()?;
+        .collect::<Result<Vec<CollateralResponse>, StdError>>()?;
 
     Ok(MultipleCollateralsAllResponse {
         next_collateral: collaterals
@@ -131,7 +127,7 @@ pub fn query_offers(
     loan_id: u64,
     start_after: Option<String>,
     limit: Option<u32>,
-) -> Result<MultipleOffersResponse> {
+) -> StdResult<MultipleOffersResponse> {
     let borrower = deps.api.addr_validate(&borrower)?;
     let limit = limit.unwrap_or(DEFAULT_QUERY_LIMIT).min(MAX_QUERY_LIMIT) as usize;
     let start = start_after.map(Bound::exclusive);
@@ -141,22 +137,18 @@ pub fn query_offers(
         .loan
         .prefix((borrower, loan_id))
         .range(deps.storage, None, start, Order::Descending)
-        .map(|x| {
-            match x{
-                Ok((key, mut offer_info))=> {
-                    offer_info.state = get_actual_state(&offer_info, deps.storage)?;
-                    Ok(
-                        OfferResponse {
-                            offer_info,
-                            global_offer_id: key,
-                        }
-                    )
-                },
-                Err(err) => bail!(err)
+        .map(|x| match x {
+            Ok((key, mut offer_info)) => {
+                offer_info.state = get_actual_state(&offer_info, deps.storage)?;
+                Ok(OfferResponse {
+                    offer_info,
+                    global_offer_id: key,
+                })
             }
+            Err(err) => Err(err),
         })
         .take(limit)
-        .collect::<Result<Vec<OfferResponse>>>()?;
+        .collect::<Result<Vec<OfferResponse>, StdError>>()?;
 
     Ok(MultipleOffersResponse {
         next_offer: offers.last().map(|last| last.global_offer_id.clone()),
@@ -169,7 +161,7 @@ pub fn query_lender_offers(
     lender: String,
     start_after: Option<String>,
     limit: Option<u32>,
-) -> Result<MultipleOffersResponse> {
+) -> StdResult<MultipleOffersResponse> {
     let lender = deps.api.addr_validate(&lender)?;
     let limit = limit.unwrap_or(DEFAULT_QUERY_LIMIT).min(MAX_QUERY_LIMIT) as usize;
     let start = start_after.map(Bound::exclusive);
@@ -184,10 +176,10 @@ pub fn query_lender_offers(
                 offer_info,
                 global_offer_id: key,
             })
-            .map_err(|err| anyhow!(err))
+            .map_err(|err| err)
         })
         .take(limit)
-        .collect::<Result<Vec<OfferResponse>>>()?;
+        .collect::<StdResult<Vec<OfferResponse>>>()?;
 
     Ok(MultipleOffersResponse {
         next_offer: offers.last().map(|last| last.global_offer_id.clone()),
@@ -195,15 +187,23 @@ pub fn query_lender_offers(
     })
 }
 
-pub fn is_nft_owner(deps: Deps, sender: Addr, nft_address: String, token_id: String) -> Result<()>{
-
-    let owner_response: OwnerOfResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+pub fn is_nft_owner(
+    deps: Deps,
+    sender: Addr,
+    nft_address: String,
+    token_id: String,
+) -> Result<(), ContractError> {
+    let owner_response: OwnerOfResponse =
+        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: nft_address,
-            msg: to_binary(&Cw721QueryMsg::OwnerOf { token_id, include_expired: None })?,
+            msg: to_json_binary(&Cw721QueryMsg::OwnerOf {
+                token_id,
+                include_expired: None,
+            })?,
         }))?;
 
-    if owner_response.owner != sender{
-        bail!(ContractError::SenderNotOwner{})
+    if owner_response.owner != sender {
+        return Err(ContractError::SenderNotOwner {});
     }
     Ok(())
 }

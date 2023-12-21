@@ -1,37 +1,28 @@
-use std::str::FromStr;
-use crate::contract::execute;
-use crate::contract::instantiate;
+use crate::contract::{execute, instantiate};
+use crate::error;
 use crate::error::ContractError;
-use crate::state::lender_offers;
-use crate::state::COLLATERAL_INFO;
-use crate::state::CONTRACT_INFO;
-use anyhow::Result;
+use crate::state::{lender_offers, COLLATERAL_INFO, CONTRACT_INFO};
 use cosmwasm_std::{
     coin, coins,
     testing::{mock_dependencies, mock_env, mock_info},
-    Api, BankMsg, Coin, DepsMut, Env, Response, SubMsg, Uint128, Decimal
+    Api, BankMsg, Coin, Decimal, DepsMut, Env, Response, SubMsg, Uint128,
 };
-use cw1155::Cw1155ExecuteMsg;
-
-use utils::state::OwnerStruct;
+use std::str::FromStr;
+// use cw1155::Cw1155ExecuteMsg;
+// use utils::state::Cw1155Coin;
 
 use fee_contract_export::state::FeeType;
 use fee_distributor_export::msg::ExecuteMsg as FeeDistributorMsg;
-use nft_loans_export::msg::ExecuteMsg;
-use nft_loans_export::msg::InstantiateMsg;
-use nft_loans_export::state::CollateralInfo;
-use nft_loans_export::state::ContractInfo;
-use nft_loans_export::state::LoanState;
-use nft_loans_export::state::LoanTerms;
-use nft_loans_export::state::OfferState;
-use utils::msg::into_cosmos_msg;
-use utils::state::AssetInfo;
-use utils::state::Cw1155Coin;
-use utils::state::Cw721Coin;
-use crate::testing::mock_querier::{mock_dependencies as mock_querier_dependencies};
 
-pub fn assert_error(err: anyhow::Error, contract_error: ContractError) {
-    assert_eq!(err.downcast::<ContractError>().unwrap(), contract_error)
+use nft_loans_export::msg::{ExecuteMsg, InstantiateMsg};
+use nft_loans_export::state::{CollateralInfo, ContractInfo, LoanState, LoanTerms, OfferState};
+
+use utils::msg::into_cosmos_msg;
+use utils::state::{AssetInfo, OwnerStruct,Cw721Coin};
+use crate::testing::mock_querier::mock_dependencies as mock_querier_dependencies;
+
+pub fn assert_error(err: error::ContractError, contract_error: ContractError) {
+    assert_eq!(err, contract_error)
 }
 
 pub fn init_helper(deps: DepsMut) {
@@ -125,7 +116,7 @@ fn test_init_sanity() {
     .unwrap();
     assert_eq!(
         CONTRACT_INFO.load(&deps.storage).unwrap().owner,
-        OwnerStruct{
+        OwnerStruct {
             owner: deps.api.addr_validate("this_address").unwrap(),
             new_owner: Some(deps.api.addr_validate("new_owner").unwrap()),
         }
@@ -135,12 +126,12 @@ fn test_init_sanity() {
         deps.as_mut(),
         env.clone(),
         mock_info("new_owner", &[]),
-        ExecuteMsg::ClaimOwnership {  }
+        ExecuteMsg::ClaimOwnership {},
     )
     .unwrap();
     assert_eq!(
         CONTRACT_INFO.load(&deps.storage).unwrap().owner,
-        OwnerStruct{
+        OwnerStruct {
             owner: deps.api.addr_validate("new_owner").unwrap(),
             new_owner: None
         }
@@ -179,9 +170,9 @@ pub fn add_collateral_helper(
     creator: &str,
     address: &str,
     token_id: &str,
-    value: Option<Uint128>,
+    _value: Option<Uint128>,
     terms: Option<LoanTerms>,
-) -> Result<Response> {
+) -> Result<Response, ContractError> {
     let info = mock_info(creator, &[]);
     let env = mock_env();
 
@@ -190,18 +181,10 @@ pub fn add_collateral_helper(
         env,
         info,
         ExecuteMsg::DepositCollaterals {
-            tokens: vec![if let Some(value) = value {
-                AssetInfo::Cw1155Coin(Cw1155Coin {
-                    address: address.to_string(),
-                    token_id: token_id.to_string(),
-                    value,
-                })
-            } else {
-                AssetInfo::Cw721Coin(Cw721Coin {
-                    address: address.to_string(),
-                    token_id: token_id.to_string(),
-                })
-            }],
+            tokens: vec![AssetInfo::Cw721Coin(Cw721Coin {
+                address: address.to_string(),
+                token_id: token_id.to_string(),
+            })],
             terms,
             comment: None,
             loan_preview: None,
@@ -214,7 +197,7 @@ fn set_terms_helper(
     borrower: &str,
     loan_id: u64,
     terms: LoanTerms,
-) -> Result<Response> {
+) -> Result<Response, ContractError> {
     let info = mock_info(borrower, &[]);
     let env = mock_env();
 
@@ -226,7 +209,7 @@ fn set_terms_helper(
             loan_id,
             terms: Some(terms),
             comment: None,
-            loan_preview: None
+            loan_preview: None,
         },
     )
 }
@@ -238,7 +221,7 @@ fn make_offer_helper(
     loan_id: u64,
     terms: LoanTerms,
     coins: Vec<Coin>,
-) -> Result<Response> {
+) -> Result<Response, ContractError> {
     let info = mock_info(lender, &coins);
     let env = mock_env();
 
@@ -255,7 +238,11 @@ fn make_offer_helper(
     )
 }
 
-fn cancel_offer_helper(deps: DepsMut, lender: &str, global_offer_id: &str) -> Result<Response> {
+fn cancel_offer_helper(
+    deps: DepsMut,
+    lender: &str,
+    global_offer_id: &str,
+) -> Result<Response, ContractError> {
     let info = mock_info(lender, &[]);
     let env = mock_env();
 
@@ -269,7 +256,11 @@ fn cancel_offer_helper(deps: DepsMut, lender: &str, global_offer_id: &str) -> Re
     )
 }
 
-fn refuse_offer_helper(deps: DepsMut, borrower: &str, global_offer_id: &str) -> Result<Response> {
+fn refuse_offer_helper(
+    deps: DepsMut,
+    borrower: &str,
+    global_offer_id: &str,
+) -> Result<Response, ContractError> {
     let info = mock_info(borrower, &[]);
     let env = mock_env();
 
@@ -289,7 +280,7 @@ fn accept_loan_helper(
     borrower: &str,
     loan_id: u64,
     coins: Vec<Coin>,
-) -> Result<Response> {
+) -> Result<Response, ContractError> {
     let info = mock_info(lender, &coins);
     let env = mock_env();
 
@@ -305,7 +296,11 @@ fn accept_loan_helper(
     )
 }
 
-fn accept_offer_helper(deps: DepsMut, borrower: &str, global_offer_id: &str) -> Result<Response> {
+fn accept_offer_helper(
+    deps: DepsMut,
+    borrower: &str,
+    global_offer_id: &str,
+) -> Result<Response, ContractError> {
     let info = mock_info(borrower, &[]);
     let env = mock_env();
 
@@ -319,7 +314,11 @@ fn accept_offer_helper(deps: DepsMut, borrower: &str, global_offer_id: &str) -> 
     )
 }
 
-fn withdraw_collateral_helper(deps: DepsMut, creator: &str, loan_id: u64) -> Result<Response> {
+fn withdraw_collateral_helper(
+    deps: DepsMut,
+    creator: &str,
+    loan_id: u64,
+) -> Result<Response, ContractError> {
     let info = mock_info(creator, &[]);
     let env = mock_env();
 
@@ -330,7 +329,7 @@ fn withdraw_refused_offer_helper(
     deps: DepsMut,
     lender: &str,
     global_offer_id: &str,
-) -> Result<Response> {
+) -> Result<Response, ContractError> {
     let info = mock_info(lender, &[]);
     let env = mock_env();
 
@@ -349,7 +348,7 @@ fn repay_borrowed_funds_helper(
     loan_id: u64,
     funds: Vec<Coin>,
     env: Env,
-) -> Result<Response> {
+) -> Result<Response, ContractError> {
     let info = mock_info(borrower, &funds);
 
     execute(deps, env, info, ExecuteMsg::RepayBorrowedFunds { loan_id })
@@ -360,7 +359,7 @@ fn withdraw_defaulted_loan_helper(
     borrower: &str,
     loan_id: u64,
     env: Env,
-) -> Result<Response> {
+) -> Result<Response, ContractError> {
     let info = mock_info(lender, &[]);
 
     execute(
@@ -431,10 +430,9 @@ fn test_add_collateral() {
     assert_eq!(
         coll_info,
         CollateralInfo {
-            associated_assets: vec![AssetInfo::Cw1155Coin(Cw1155Coin {
+            associated_assets: vec![AssetInfo::Cw721Coin(Cw721Coin {
                 address: "nft".to_string(),
-                token_id: "59".to_string(),
-                value: Uint128::from(459u128)
+                token_id: "59".to_string()
             })],
             list_date: mock_env().block.time,
             ..Default::default()
@@ -501,10 +499,9 @@ fn test_withdraw_collateral() {
         coll_info,
         CollateralInfo {
             terms: None,
-            associated_assets: vec![AssetInfo::Cw1155Coin(Cw1155Coin {
+            associated_assets: vec![AssetInfo::Cw721Coin(Cw721Coin {
                 address: "nft".to_string(),
-                token_id: "59".to_string(),
-                value: Uint128::from(459u128)
+                token_id: "59".to_string()
             })],
             list_date: mock_env().block.time,
             ..Default::default()
@@ -525,11 +522,10 @@ fn test_withdraw_collateral() {
 #[test]
 fn test_accept_loan() {
     let mut deps = mock_querier_dependencies(&[]);
-    deps.querier
-        .with_owner_of(&[
-            (&"nft - 58".to_string(), &"creator".to_string()),
-            (&"nft - 59".to_string(), &"creator".to_string())
-        ]);
+    deps.querier.with_owner_of(&[
+        (&"nft - 58".to_string(), &"creator".to_string()),
+        (&"nft - 59".to_string(), &"creator".to_string()),
+    ]);
 
     init_helper(deps.as_mut());
     add_collateral_helper(deps.as_mut(), "creator", "nft", "58", None, None).unwrap();
@@ -1004,7 +1000,7 @@ fn test_normal_flow() {
 
     let res =
         repay_borrowed_funds_helper(deps.as_mut(), "creator", 0, coins(506, "luna"), env).unwrap();
-    let env = mock_env();
+    let _env = mock_env();
     assert_eq!(
         res.messages,
         vec![
@@ -1012,20 +1008,20 @@ fn test_normal_flow() {
                 to_address: "anyone".to_string(),
                 amount: coins(503, "luna"),
             }),
-            SubMsg::new(
-                into_cosmos_msg(
-                    Cw1155ExecuteMsg::SendFrom {
-                        from: env.contract.address.to_string(),
-                        to: "creator".to_string(),
-                        token_id: "58".to_string(),
-                        value: Uint128::new(45u128),
-                        msg: None,
-                    },
-                    "nft",
-                    None
-                )
-                .unwrap()
-            ),
+            // SubMsg::new(
+            //     into_cosmos_msg(
+            //         Cw1155ExecuteMsg::SendFrom {
+            //             from: env.contract.address.to_string(),
+            //             to: "creator".to_string(),
+            //             token_id: "58".to_string(),
+            //             value: Uint128::new(45u128),
+            //             msg: None,
+            //         },
+            //         "nft",
+            //         None
+            //     )
+            //     .unwrap()
+            // ),
             SubMsg::new(
                 into_cosmos_msg(
                     FeeDistributorMsg::DepositFees {
@@ -1135,5 +1131,5 @@ fn test_steal_funds() {
     // attacker calls `RefuseOffer` to mutate offer state to `Refused`
     let err = refuse_offer_helper(deps.as_mut(), "attacker", "1").unwrap_err();
     // The attacker can't refuse an offer that was already accepted or withdrawn, etc.
-    assert_error(err, ContractError::NotRefusable {  });
+    assert_error(err, ContractError::NotRefusable {});
 }

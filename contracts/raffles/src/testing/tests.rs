@@ -1,14 +1,14 @@
 use std::str::FromStr;
-use anyhow::Result;
+// use anyhow::Result;
 extern crate rustc_serialize as serialize;
 use serialize::base64::{self, ToBase64};
 use serialize::hex::FromHex;
 
 use cosmwasm_std::{
-    coin, coins, from_binary,
+    coin, coins, from_json,
     testing::{mock_dependencies, mock_env, mock_info, MOCK_CONTRACT_ADDR},
     Api, BankMsg, Binary, Coin, DepsMut, Event, Response, SubMsg, SubMsgResponse, SubMsgResult,
-    Uint128, Decimal
+     Decimal
 };
 use utils::state::OwnerStruct;
 
@@ -25,8 +25,8 @@ use crate::contract::{execute, instantiate, query, verify};
 use crate::error::ContractError;
 use crate::state::{CONTRACT_INFO, RAFFLE_INFO};
 
-use cw1155::Cw1155ExecuteMsg;
-use cw20::Cw20ExecuteMsg;
+// use cw1155::Cw1155ExecuteMsg;
+// use cw20::Cw20ExecuteMsg;
 use cw721::Cw721ExecuteMsg;
 
 use crate::testing::mock_querier::mock_querier_dependencies;
@@ -57,7 +57,7 @@ fn init_helper(deps: DepsMut) {
     instantiate(deps, env, info, instantiate_msg).unwrap();
 }
 
-fn create_raffle(deps: DepsMut) -> Result<Response> {
+fn create_raffle(deps: DepsMut) -> Result<Response, ContractError> {
     let info = mock_info("creator", &[]);
     let env = mock_env();
 
@@ -73,11 +73,11 @@ fn create_raffle(deps: DepsMut) -> Result<Response> {
             })],
             raffle_options: RaffleOptionsMsg::default(),
             raffle_ticket_price: AssetInfo::coin(10000u128, "uluna"),
-        },
+        },  
     )?)
 }
 
-fn cancel_raffle_helper(deps: DepsMut, caller: &str, raffle_id: u64) -> Result<Response> {
+fn cancel_raffle_helper(deps: DepsMut, caller: &str, raffle_id: u64) -> Result<Response, ContractError> {
     let info = mock_info(caller, &[]);
     let env = mock_env();
 
@@ -89,7 +89,7 @@ fn cancel_raffle_helper(deps: DepsMut, caller: &str, raffle_id: u64) -> Result<R
     )?)
 }
 
-fn create_raffle_comment(deps: DepsMut, comment: &str) -> Result<Response> {
+fn create_raffle_comment(deps: DepsMut, comment: &str) -> Result<Response, ContractError> {
     let info = mock_info("creator", &[]);
     let env = mock_env();
 
@@ -113,7 +113,24 @@ fn create_raffle_comment(deps: DepsMut, comment: &str) -> Result<Response> {
     )?)
 }
 
-fn create_raffle_cw20(deps: DepsMut) -> Result<Response> {
+// fn create_raffle_cw20(deps: DepsMut) -> Result<Response> {
+//     let info = mock_info("creator", &[]);
+//     let env = mock_env();
+
+//     Ok(execute(
+//         deps,
+//         env,
+//         info,
+//         ExecuteMsg::CreateRaffle {
+//             owner: None,
+//             assets: vec![AssetInfo::cw721("nft", "token_id")],
+//             raffle_options: RaffleOptionsMsg::default(),
+//             raffle_ticket_price: AssetInfo::coin(10000u128, "address"),
+//         },
+//     )?)
+// }
+
+fn create_raffle_cw721(deps: DepsMut) -> Result<Response, ContractError> {
     let info = mock_info("creator", &[]);
     let env = mock_env();
 
@@ -123,24 +140,7 @@ fn create_raffle_cw20(deps: DepsMut) -> Result<Response> {
         info,
         ExecuteMsg::CreateRaffle {
             owner: None,
-            assets: vec![AssetInfo::cw721("nft", "token_id")],
-            raffle_options: RaffleOptionsMsg::default(),
-            raffle_ticket_price: AssetInfo::cw20(10000u128, "address"),
-        },
-    )?)
-}
-
-fn create_raffle_cw1155(deps: DepsMut) -> Result<Response> {
-    let info = mock_info("creator", &[]);
-    let env = mock_env();
-
-    Ok(execute(
-        deps,
-        env,
-        info,
-        ExecuteMsg::CreateRaffle {
-            owner: None,
-            assets: vec![AssetInfo::cw1155("nft", "token_id", 675u128)],
+            assets: vec![AssetInfo::cw721("address", "token_id")],
             raffle_options: RaffleOptionsMsg::default(),
             raffle_ticket_price: AssetInfo::coin(10000u128, "uluna"),
         },
@@ -154,7 +154,7 @@ fn buy_ticket_coin(
     c: Coin,
     delta: u64,
     ticket_number: Option<u32>,
-) -> Result<Response> {
+) -> Result<Response, ContractError> {
     let info = mock_info(buyer, &[c.clone()]);
     let mut env = mock_env();
     env.block.time = env.block.time.plus_seconds(delta);
@@ -170,30 +170,30 @@ fn buy_ticket_coin(
     )?)
 }
 
-fn buy_ticket_cw20(
-    deps: DepsMut,
-    raffle_id: u64,
-    buyer: &str,
-    amount: u128,
-    address: &str,
-    delta: u64,
-) -> Result<Response> {
-    let info = mock_info(buyer, &[]);
-    let mut env = mock_env();
-    env.block.time = env.block.time.plus_seconds(delta);
-    Ok(execute(
-        deps,
-        env,
-        info,
-        ExecuteMsg::BuyTicket {
-            raffle_id,
-            sent_assets: AssetInfo::cw20(amount, address),
-            ticket_number: 1,
-        },
-    )?)
-}
+// fn buy_ticket_cw20(
+//     deps: DepsMut,
+//     raffle_id: u64,
+//     buyer: &str,
+//     amount: u128,
+//     address: &str,
+//     delta: u64,
+// ) -> Result<Response, ContractError> {
+//     let info = mock_info(buyer, &[]);
+//     let mut env = mock_env();
+//     env.block.time = env.block.time.plus_seconds(delta);
+//     Ok(execute(
+//         deps,
+//         env,
+//         info,
+//         ExecuteMsg::BuyTicket {
+//             raffle_id,
+//             sent_assets: AssetInfo::coin(amount, address),
+//             ticket_number: 1,
+//         },
+//     )?)
+// }
 
-fn claim_nft(deps: DepsMut, raffle_id: u64, time_delta: u64) -> Result<Response> {
+fn claim_nft(deps: DepsMut, raffle_id: u64, time_delta: u64) -> Result<Response, ContractError> {
     let info = mock_info("creator", &[]);
     let mut env = mock_env();
     env.block.time = env.block.time.plus_seconds(time_delta);
@@ -246,7 +246,7 @@ fn test_create_and_cancel_raffle() {
     let err = cancel_raffle_helper(deps.as_mut(), "bad_person", 0).unwrap_err();
 
     assert_error(
-        err,
+        err.into(),
         ContractError::Unauthorized {  }
     );
     let response = cancel_raffle_helper(deps.as_mut(), "creator", 0).unwrap();
@@ -267,7 +267,7 @@ fn test_create_and_cancel_raffle() {
 
     // Can't cancel twice
     let err = cancel_raffle_helper(deps.as_mut(), "creator", 0).unwrap_err();
-    assert_error(err, ContractError::WrongStateForCancel { status: RaffleState::Cancelled })
+    assert_error(err.into(), ContractError::WrongStateForCancel { status: RaffleState::Cancelled })
 
 }
 
@@ -294,7 +294,7 @@ fn test_claim_raffle() {
 
     let claim_too_soon_error = claim_nft(deps.as_mut(), 0, 0u64).unwrap_err();
     assert_eq!(
-        claim_too_soon_error.downcast::<ContractError>().unwrap(),
+        claim_too_soon_error,
         ContractError::WrongStateForClaim {
             status: RaffleState::Started
         }
@@ -302,7 +302,7 @@ fn test_claim_raffle() {
 
     let claim_too_soon_error = claim_nft(deps.as_mut(), 0, 1000u64).unwrap_err();
     assert_eq!(
-        claim_too_soon_error.downcast::<ContractError>().unwrap(),
+        claim_too_soon_error,
         ContractError::WrongStateForClaim {
             status: RaffleState::Closed
         }
@@ -526,200 +526,231 @@ fn test_multiple_tickets_and_claim_raffle() {
     );
 }
 
-#[test]
-fn test_ticket_and_claim_raffle_cw20() {
-    let mut deps = mock_querier_dependencies(&[]);
-    deps.querier
-        .with_owner_of(&[
-            (&"nft - token_id".to_string(), &"creator".to_string())
-        ]);
+// #[test]
+// fn test_ticket_and_claim_raffle_cw20() {
+//     let mut deps = mock_querier_dependencies(&[]);
+//     deps.querier
+//         .with_owner_of(&[
+//             (&"nft - token_id".to_string(), &"creator".to_string())
+//         ]);
         
-    init_helper(deps.as_mut());
-    create_raffle_cw20(deps.as_mut()).unwrap();
+//     init_helper(deps.as_mut());
+//     create_raffle_cw20(deps.as_mut()).unwrap();
 
-    //Buy some tickets
+//     //Buy some tickets
 
-    buy_ticket_cw20(deps.as_mut(), 0, "first", 100u128, "address", 0u64).unwrap_err();
-    buy_ticket_cw20(deps.as_mut(), 0, "first", 1000000000u128, "address", 0u64).unwrap_err();
+//     buy_ticket_cw20(deps.as_mut(), 0, "first", 100u128, "address", 0u64).unwrap_err();
+//     buy_ticket_cw20(deps.as_mut(), 0, "first", 1000000000u128, "address", 0u64).unwrap_err();
 
-    let response = buy_ticket_cw20(deps.as_mut(), 0, "first", 10000u128, "address", 0u64).unwrap();
-    assert_eq!(
-        response.messages,
-        vec![SubMsg::new(
-            into_cosmos_msg(
-                Cw20ExecuteMsg::Transfer {
-                    recipient: MOCK_CONTRACT_ADDR.to_string(),
-                    amount: Uint128::from(10000u128),
-                },
-                "address".to_string()
-            )
-            .unwrap()
-        )]
-    );
+//     let response = buy_ticket_cw20(deps.as_mut(), 0, "first", 10000u128, "address", 0u64).unwrap();
+//     assert_eq!(
+//         response.messages,
+//         vec![SubMsg::new(
+//             into_cosmos_msg(
+//                 Cw20ExecuteMsg::Transfer {
+//                     recipient: MOCK_CONTRACT_ADDR.to_string(),
+//                     amount: Uint128::from(10000u128),
+//                 },
+//                 "address".to_string()
+//             )
+//             .unwrap()
+//         )]
+//     );
 
-    buy_ticket_cw20(deps.as_mut(), 0, "first", 10000u128, "address", 0u64).unwrap();
-    buy_ticket_cw20(deps.as_mut(), 0, "second", 10000u128, "address", 0u64).unwrap();
-    buy_ticket_cw20(deps.as_mut(), 0, "third", 10000u128, "address", 0u64).unwrap();
-    buy_ticket_cw20(deps.as_mut(), 0, "fourth", 10000u128, "address", 0u64).unwrap();
+//     buy_ticket_cw20(deps.as_mut(), 0, "first", 10000u128, "address", 0u64).unwrap();
+//     buy_ticket_cw20(deps.as_mut(), 0, "second", 10000u128, "address", 0u64).unwrap();
+//     buy_ticket_cw20(deps.as_mut(), 0, "third", 10000u128, "address", 0u64).unwrap();
+//     buy_ticket_cw20(deps.as_mut(), 0, "fourth", 10000u128, "address", 0u64).unwrap();
 
-    // Update the randomness internally
-    let mut raffle_info = RAFFLE_INFO.load(&deps.storage, 0).unwrap();
+//     // Update the randomness internally
+//     let mut raffle_info = RAFFLE_INFO.load(&deps.storage, 0).unwrap();
 
-    let mut randomness: [u8; 32] = [0; 32];
-    hex::decode_to_slice(
-        "89580f6a639add6c90dcf3d222e35415f89d9ee2cd6ef6fc4f23134cdffa5d1e",
-        randomness.as_mut_slice(),
-    )
-    .unwrap();
-    raffle_info.randomness = Some(Randomness {
-        randomness,
-        randomness_round: 2098475u64,
-        randomness_owner: deps.api.addr_validate("rand_provider").unwrap(),
-    });
-    RAFFLE_INFO
-        .save(deps.as_mut().storage, 0, &raffle_info)
-        .unwrap();
+//     let mut randomness: [u8; 32] = [0; 32];
+//     hex::decode_to_slice(
+//         "89580f6a639add6c90dcf3d222e35415f89d9ee2cd6ef6fc4f23134cdffa5d1e",
+//         randomness.as_mut_slice(),
+//     )
+//     .unwrap();
+//     raffle_info.randomness = Some(Randomness {
+//         randomness,
+//         randomness_round: 2098475u64,
+//         randomness_owner: deps.api.addr_validate("rand_provider").unwrap(),
+//     });
+//     RAFFLE_INFO
+//         .save(deps.as_mut().storage, 0, &raffle_info)
+//         .unwrap();
 
-    let response = claim_nft(deps.as_mut(), 0, 1000u64).unwrap();
+//     let response = claim_nft(deps.as_mut(), 0, 1000u64).unwrap();
 
-    assert_eq!(
-        response.messages,
-        vec![
-            SubMsg::new(
-                into_cosmos_msg(
-                    Cw721ExecuteMsg::TransferNft {
-                        recipient: "third".to_string(),
-                        token_id: "token_id".to_string()
-                    },
-                    "nft".to_string()
-                )
-                .unwrap()
-            ),
-            SubMsg::new(
-                into_cosmos_msg(
-                    Cw20ExecuteMsg::Transfer {
-                        recipient: "rand_provider".to_string(),
-                        amount: Uint128::from(5u128)
-                    },
-                    "address".to_string()
-                )
-                .unwrap()
-            ),
-            SubMsg::new(
-                into_cosmos_msg(
-                    Cw20ExecuteMsg::Transfer {
-                        recipient: "creator".to_string(),
-                        amount: Uint128::from(10u128)
-                    },
-                    "address".to_string()
-                )
-                .unwrap()
-            ),
-            SubMsg::new(
-                into_cosmos_msg(
-                    Cw20ExecuteMsg::Transfer {
-                        recipient: "creator".to_string(),
-                        amount: Uint128::from(49985u128)
-                    },
-                    "address".to_string()
-                )
-                .unwrap()
-            ),
-        ]
-    );
+//     assert_eq!(
+//         response.messages,
+//         vec![
+//             SubMsg::new(
+//                 into_cosmos_msg(
+//                     Cw721ExecuteMsg::TransferNft {
+//                         recipient: "third".to_string(),
+//                         token_id: "token_id".to_string()
+//                     },
+//                     "nft".to_string()
+//                 )
+//                 .unwrap()
+//             ),
+//             SubMsg::new(
+//                 into_cosmos_msg(
+//                     Cw20ExecuteMsg::Transfer {
+//                         recipient: "rand_provider".to_string(),
+//                         amount: Uint128::from(5u128)
+//                     },
+//                     "address".to_string()
+//                 )
+//                 .unwrap()
+//             ),
+//             SubMsg::new(
+//                 into_cosmos_msg(
+//                     Cw20ExecuteMsg::Transfer {
+//                         recipient: "creator".to_string(),
+//                         amount: Uint128::from(10u128)
+//                     },
+//                     "address".to_string()
+//                 )
+//                 .unwrap()
+//             ),
+//             SubMsg::new(
+//                 into_cosmos_msg(
+//                     Cw20ExecuteMsg::Transfer {
+//                         recipient: "creator".to_string(),
+//                         amount: Uint128::from(49985u128)
+//                     },
+//                     "address".to_string()
+//                 )
+//                 .unwrap()
+//             ),
+//         ]
+//     );
 
-    // You can't buy tickets when the raffle is over
-    buy_ticket_coin(
-        deps.as_mut(),
-        0,
-        "first",
-        coin(10000, "uluna"),
-        100u64,
-        None,
-    )
-    .unwrap_err();
-    buy_ticket_coin(
-        deps.as_mut(),
-        0,
-        "first",
-        coin(10000, "uluna"),
-        1000u64,
-        None,
-    )
-    .unwrap_err();
-}
+//     // You can't buy tickets when the raffle is over
+//     buy_ticket_coin(
+//         deps.as_mut(),
+//         0,
+//         "first",
+//         coin(10000, "uluna"),
+//         100u64,
+//         None,
+//     )
+//     .unwrap_err();
+//     buy_ticket_coin(
+//         deps.as_mut(),
+//         0,
+//         "first",
+//         coin(10000, "uluna"),
+//         1000u64,
+//         None,
+//     )
+//     .unwrap_err();
+// }
 #[test]
-fn test_ticket_and_claim_raffle_cw1155() {
+fn test_ticket_and_claim_raffle_cw721() {
     let mut deps = mock_dependencies();
     init_helper(deps.as_mut());
-    let response = create_raffle_cw1155(deps.as_mut()).unwrap();
+    let response = create_raffle_cw721(deps.as_mut()).unwrap();
 
     assert_eq!(
         response.messages,
         vec![SubMsg::new(
             into_cosmos_msg(
-                Cw1155ExecuteMsg::SendFrom {
-                    from: "creator".to_string(),
-                    to: MOCK_CONTRACT_ADDR.to_string(),
-                    token_id: "token_id".to_string(),
-                    value: Uint128::from(675u128),
-                    msg: None,
-                },
+                Cw721ExecuteMsg::TransferNft { recipient: MOCK_CONTRACT_ADDR.to_string(),  token_id: "token_id".to_string() } ,
                 "nft"
             )
             .unwrap()
         )]
     );
 
-    //Buy some tickets
-    buy_ticket_coin(deps.as_mut(), 0, "first", coin(10, "uluna"), 0u64, None).unwrap_err();
-    buy_ticket_coin(
-        deps.as_mut(),
-        0,
-        "first",
-        coin(1000000, "uluna"),
-        0u64,
-        None,
-    )
-    .unwrap_err();
-    buy_ticket_coin(deps.as_mut(), 0, "first", coin(10000, "uluna"), 0u64, None).unwrap();
-    buy_ticket_coin(deps.as_mut(), 0, "first", coin(10000, "uluna"), 0u64, None).unwrap();
-    buy_ticket_coin(deps.as_mut(), 0, "second", coin(10000, "uluna"), 0u64, None).unwrap();
-    buy_ticket_coin(deps.as_mut(), 0, "third", coin(10000, "uluna"), 0u64, None).unwrap();
-    buy_ticket_coin(deps.as_mut(), 0, "fourth", coin(10000, "uluna"), 0u64, None).unwrap();
+//     // You can't buy tickets when the raffle is over
+//     buy_ticket_coin(
+//         deps.as_mut(),
+//         0,
+//         "first",
+//         coin(10000, "uluna"),
+//         100u64,
+//         None,
+//     )
+//     .unwrap_err();
+//     buy_ticket_coin(
+//         deps.as_mut(),
+//         0,
+//         "first",
+//         coin(10000, "uluna"),
+//         1000u64,
+//         None,
+//     )
+//     .unwrap_err();
+// }
+// #[test]
+// fn test_ticket_and_claim_raffle_cw1155() {
+//     let mut deps = mock_dependencies();
+//     init_helper(deps.as_mut());
+//     let response = create_raffle_cw1155(deps.as_mut()).unwrap();
 
-    // Update the randomness internally
-    let mut raffle_info = RAFFLE_INFO.load(&deps.storage, 0).unwrap();
+//     assert_eq!(
+//         response.messages,
+//         vec![SubMsg::new(
+//             into_cosmos_msg(
+//                 Cw1155ExecuteMsg::SendFrom {
+//                     from: "creator".to_string(),
+//                     to: MOCK_CONTRACT_ADDR.to_string(),
+//                     token_id: "token_id".to_string(),
+//                     value: Uint128::from(675u128),
+//                     msg: None,
+//                 },
+//                 "nft"
+//             )
+//             .unwrap()
+//         )]
+//     );
 
-    let mut randomness: [u8; 32] = [0; 32];
-    hex::decode_to_slice(
-        "89580f6a639add6c90dcf3d222e35415f89d9ee2cd6ef6fc4f23134cdffa5d1e",
-        randomness.as_mut_slice(),
-    )
-    .unwrap();
-    raffle_info.randomness = Some(Randomness {
-        randomness,
-        randomness_round: 2098475u64,
-        randomness_owner: deps.api.addr_validate("rand_provider").unwrap(),
-    });
-    RAFFLE_INFO
-        .save(deps.as_mut().storage, 0, &raffle_info)
-        .unwrap();
+//     //Buy some tickets
+//     buy_ticket_coin(deps.as_mut(), 0, "first", coin(10, "uluna"), 0u64, None).unwrap_err();
+//     buy_ticket_coin(
+//         deps.as_mut(),
+//         0,
+//         "first",
+//         coin(1000000, "uluna"),
+//         0u64,
+//         None,
+//     )
+//     .unwrap_err();
+//     buy_ticket_coin(deps.as_mut(), 0, "first", coin(10000, "uluna"), 0u64, None).unwrap();
+//     buy_ticket_coin(deps.as_mut(), 0, "first", coin(10000, "uluna"), 0u64, None).unwrap();
+//     buy_ticket_coin(deps.as_mut(), 0, "second", coin(10000, "uluna"), 0u64, None).unwrap();
+//     buy_ticket_coin(deps.as_mut(), 0, "third", coin(10000, "uluna"), 0u64, None).unwrap();
+//     buy_ticket_coin(deps.as_mut(), 0, "fourth", coin(10000, "uluna"), 0u64, None).unwrap();
 
-    let response = claim_nft(deps.as_mut(), 0, 1000u64).unwrap();
+//     // Update the randomness internally
+//     let mut raffle_info = RAFFLE_INFO.load(&deps.storage, 0).unwrap();
+
+//     let mut randomness: [u8; 32] = [0; 32];
+//     hex::decode_to_slice(
+//         "89580f6a639add6c90dcf3d222e35415f89d9ee2cd6ef6fc4f23134cdffa5d1e",
+//         randomness.as_mut_slice(),
+//     )
+//     .unwrap();
+//     raffle_info.randomness = Some(Randomness {
+//         randomness,
+//         randomness_round: 2098475u64,
+//         randomness_owner: deps.api.addr_validate("rand_provider").unwrap(),
+//     });
+//     RAFFLE_INFO
+//         .save(deps.as_mut().storage, 0, &raffle_info)
+//         .unwrap();
+
+//     let response = claim_nft(deps.as_mut(), 0, 1000u64).unwrap();
 
     assert_eq!(
         response.messages,
         vec![
             SubMsg::new(
                 into_cosmos_msg(
-                    Cw1155ExecuteMsg::SendFrom {
-                        from: MOCK_CONTRACT_ADDR.to_string(),
-                        to: "third".to_string(),
-                        token_id: "token_id".to_string(),
-                        value: Uint128::from(675u128),
-                        msg: None,
-                    },
+                    Cw721ExecuteMsg::TransferNft { recipient: "third".to_string(), token_id: "token_id".to_string(), },
                     "nft".to_string()
                 )
                 .unwrap()
@@ -739,127 +770,127 @@ fn test_ticket_and_claim_raffle_cw1155() {
         ]
     );
 
-    // You can't buy tickets when the raffle is over
-    buy_ticket_coin(
-        deps.as_mut(),
-        0,
-        "first",
-        coin(10000, "uluna"),
-        100u64,
-        None,
-    )
-    .unwrap_err();
-    buy_ticket_coin(
-        deps.as_mut(),
-        0,
-        "first",
-        coin(10000, "uluna"),
-        1000u64,
-        None,
-    )
-    .unwrap_err();
-}
-
-// #[test]
-// fn test_randomness_provider() {
-//     let mut deps = mock_dependencies();
-//     init_helper(deps.as_mut());
-//     create_raffle_cw1155(deps.as_mut()).unwrap();
-//     let mut env = mock_env();
-//     env.block.time = env.block.time.plus_seconds(2u64);
-//     let info = mock_info("anyone", &[]);
-//     let mut randomness = DrandRandomness {
-//         round: 90,
-//         signature: Binary::from_base64("quid").unwrap(),
-//         previous_signature: Binary::from_base64("quid").unwrap(),
-//     };
-//     let response = execute(
+//     // You can't buy tickets when the raffle is over
+//     buy_ticket_coin(
 //         deps.as_mut(),
-//         env.clone(),
-//         info.clone(),
-//         ExecuteMsg::UpdateRandomness {
-//             raffle_id: 0,
-//             randomness: randomness.clone(),
-//         },
-//     )
-//     .unwrap();
-//     let msg = VerifierExecuteMsg::Verify {
-//         randomness: randomness.clone(),
-//         pubkey: Binary::from_base64(&HEX_PUBKEY.from_hex().unwrap().to_base64(base64::STANDARD))
-//             .unwrap(),
-//         raffle_id: 0,
-//         owner: "anyone".to_string(),
-//     };
-
-//     assert_eq!(
-//         response.messages,
-//         vec![SubMsg::reply_on_success(
-//             into_cosmos_msg(msg, "verifier".to_string()).unwrap(),
-//             0
-//         )]
-//     );
-//     let random = "iVgPamOa3WyQ3PPSIuNUFfidnuLNbvb8TyMTTN/6XR4=";
-
-//     verify(
-//         deps.as_mut(),
-//         env.clone(),
-//         SubMsgResult::Ok(SubMsgResponse {
-//             events: vec![Event::new("wasm")
-//                 .add_attribute("round", 90u128.to_string())
-//                 .add_attribute("owner", "anyone")
-//                 .add_attribute("randomness", random)
-//                 .add_attribute("raffle_id", 0u128.to_string())],
-//             data: None,
-//         }),
-//     )
-//     .unwrap();
-
-//     randomness.round = 76;
-//     let another_randomness = execute(
-//         deps.as_mut(),
-//         env.clone(),
-//         info.clone(),
-//         ExecuteMsg::UpdateRandomness {
-//             raffle_id: 0,
-//             randomness: randomness.clone(),
-//         },
+//         0,
+//         "first",
+//         coin(10000, "uluna"),
+//         100u64,
+//         None,
 //     )
 //     .unwrap_err();
-
-//     assert_eq!(
-//         another_randomness.downcast::<ContractError>().unwrap(),
-//         ContractError::RandomnessNotAccepted { current_round: 90 }
-//     );
-
-//     randomness.round = 90;
-//     let another_randomness = execute(
+//     buy_ticket_coin(
 //         deps.as_mut(),
-//         env.clone(),
-//         info.clone(),
-//         ExecuteMsg::UpdateRandomness {
-//             raffle_id: 0,
-//             randomness: randomness.clone(),
-//         },
+//         0,
+//         "first",
+//         coin(10000, "uluna"),
+//         1000u64,
+//         None,
 //     )
 //     .unwrap_err();
-
-//     assert_eq!(
-//         another_randomness.downcast::<ContractError>().unwrap(),
-//         ContractError::RandomnessNotAccepted { current_round: 90 }
-//     );
-
-//     randomness.round = 100;
-//     execute(
-//         deps.as_mut(),
-//         env,
-//         info,
-//         ExecuteMsg::UpdateRandomness {
-//             raffle_id: 0,
-//             randomness,
-//         },
-//     )
-//     .unwrap();
 // }
+
+#[test]
+fn test_randomness_provider() {
+    let mut deps = mock_dependencies();
+    init_helper(deps.as_mut());
+    create_raffle(deps.as_mut()).unwrap();
+    let mut env = mock_env();
+    env.block.time = env.block.time.plus_seconds(2u64);
+    let info = mock_info("anyone", &[]);
+    let mut randomness = DrandRandomness {
+        round: 90,
+        signature: Binary::from_base64("quid").unwrap(),
+        previous_signature: Binary::from_base64("quid").unwrap(),
+    };
+    let response = execute(
+        deps.as_mut(),
+        env.clone(),
+        info.clone(),
+        ExecuteMsg::UpdateRandomness {
+            raffle_id: 0,
+            randomness: randomness.clone(),
+        },
+    )
+    .unwrap();
+    let msg = VerifierExecuteMsg::Verify {
+        randomness: randomness.clone(),
+        pubkey: Binary::from_base64(&HEX_PUBKEY.from_hex().unwrap().to_base64(base64::STANDARD))
+            .unwrap(),
+        raffle_id: 0,
+        owner: "anyone".to_string(),
+    };
+
+    assert_eq!(
+        response.messages,
+        vec![SubMsg::reply_on_success(
+            into_cosmos_msg(msg, "verifier".to_string()).unwrap(),
+            0
+        )]
+    );
+    let random = "iVgPamOa3WyQ3PPSIuNUFfidnuLNbvb8TyMTTN/6XR4=";
+
+    verify(
+        deps.as_mut(),
+        env.clone(),
+        SubMsgResult::Ok(SubMsgResponse {
+            events: vec![Event::new("wasm")
+                .add_attribute("round", 90u128.to_string())
+                .add_attribute("owner", "anyone")
+                .add_attribute("randomness", random)
+                .add_attribute("raffle_id", 0u128.to_string())],
+            data: None,
+        }),
+    )
+    .unwrap();
+
+    randomness.round = 76;
+    let another_randomness = execute(
+        deps.as_mut(),
+        env.clone(),
+        info.clone(),
+        ExecuteMsg::UpdateRandomness {
+            raffle_id: 0,
+            randomness: randomness.clone(),
+        },
+    )
+    .unwrap_err();
+
+        assert_eq!(
+                another_randomness,
+                ContractError::RandomnessNotAccepted { current_round: 90 }
+        );
+
+    randomness.round = 90;
+    let another_randomness = execute(
+        deps.as_mut(),
+        env.clone(),
+        info.clone(),
+        ExecuteMsg::UpdateRandomness {
+            raffle_id: 0,
+            randomness: randomness.clone(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        another_randomness,
+        ContractError::RandomnessNotAccepted { current_round: 90 }
+    );
+
+    randomness.round = 100;
+    execute(
+        deps.as_mut(),
+        env,
+        info,
+        ExecuteMsg::UpdateRandomness {
+            raffle_id: 0,
+            randomness,
+        },
+    )
+    .unwrap();
+}
 
 // Admin functions
 #[test]
@@ -985,7 +1016,7 @@ fn test_query_contract_info() {
     let env = mock_env();
     let response = query(deps.as_ref(), env, QueryMsg::ContractInfo {}).unwrap();
     assert_eq!(
-        from_binary::<ContractInfo>(&response).unwrap(),
+        from_json::<ContractInfo>(&response).unwrap(),
         ContractInfo {
             name: "nft-raffle".to_string(),
             owner: OwnerStruct::new(deps.api.addr_validate("creator").unwrap()),
@@ -1028,7 +1059,7 @@ fn test_query_raffle_info() {
     .unwrap();
 
     assert_eq!(
-        from_binary::<RaffleResponse>(&response).unwrap(),
+        from_json::<RaffleResponse>(&response).unwrap(),
         RaffleResponse {
             raffle_id: 1,
             raffle_state: RaffleState::Started,
@@ -1081,7 +1112,7 @@ fn test_query_all_raffle_info() {
     .unwrap();
 
     assert_eq!(
-        from_binary::<AllRafflesResponse>(&response)
+        from_json::<AllRafflesResponse>(&response)
             .unwrap()
             .raffles,
         vec![
@@ -1145,7 +1176,7 @@ fn test_query_all_raffle_info() {
     .unwrap();
 
     assert_eq!(
-        from_binary::<AllRafflesResponse>(&response)
+        from_json::<AllRafflesResponse>(&response)
             .unwrap()
             .raffles,
         vec![RaffleResponse {
@@ -1185,7 +1216,7 @@ fn test_query_all_raffle_info() {
     .unwrap();
 
     assert_eq!(
-        from_binary::<AllRafflesResponse>(&response)
+        from_json::<AllRafflesResponse>(&response)
             .unwrap()
             .raffles,
         vec![RaffleResponse {
@@ -1229,7 +1260,7 @@ fn test_query_all_raffle_info() {
         },
     )
     .unwrap();
-    let raffles = from_binary::<AllRafflesResponse>(&response)
+    let raffles: Vec<RaffleResponse> = from_json::<AllRafflesResponse>(&response)
         .unwrap()
         .raffles;
     assert_eq!(raffles.len(), 1);
@@ -1252,7 +1283,7 @@ fn test_query_all_raffle_info() {
         },
     )
     .unwrap();
-    let raffles = from_binary::<AllRafflesResponse>(&response)
+    let raffles = from_json::<AllRafflesResponse>(&response)
         .unwrap()
         .raffles;
     assert_eq!(raffles.len(), 2);

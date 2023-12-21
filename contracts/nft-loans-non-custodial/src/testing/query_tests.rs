@@ -1,5 +1,5 @@
 use crate::contract::query;
-use cosmwasm_std::from_binary;
+use cosmwasm_std::from_json;
 use nft_loans_export::msg::CollateralResponse;
 use nft_loans_export::msg::MultipleCollateralsResponse;
 use nft_loans_export::msg::QueryMsg;
@@ -30,7 +30,7 @@ fn test_query_collaterals() {
     add_collateral_helper(deps.as_mut(), borrower, "nft1", "token3", None, None).unwrap();
     // We query them
 
-    let collaterals: MultipleCollateralsResponse = from_binary(
+    let collaterals: MultipleCollateralsResponse = from_json(
         &query(
             deps.as_ref(),
             mock_env(),
@@ -155,7 +155,7 @@ fn test_query_and_limit_collaterals() {
     add_collateral_helper(deps.as_mut(), borrower, "nft1", "token3", None, None).unwrap();
     // We query them
 
-    let collaterals: MultipleCollateralsResponse = from_binary(
+    let collaterals: MultipleCollateralsResponse = from_json(
         &query(
             deps.as_ref(),
             mock_env(),
@@ -202,7 +202,7 @@ fn test_query_and_limit_collaterals() {
         }
     );
 
-    let collaterals: MultipleCollateralsResponse = from_binary(
+    let collaterals: MultipleCollateralsResponse = from_json(
         &query(
             deps.as_ref(),
             mock_env(),
@@ -261,7 +261,7 @@ fn test_query_and_limit_collaterals() {
         }
     );
 
-    let collaterals: MultipleCollateralsResponse = from_binary(
+    let collaterals: MultipleCollateralsResponse = from_json(
         &query(
             deps.as_ref(),
             mock_env(),

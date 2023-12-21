@@ -378,18 +378,6 @@ dependencies = [
 
 [[package]]
 name = "cw1155"
-version = "0.13.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42197c9a0fd844653177009125f24157e486578289327a3781923e427a8f9bbc"
-dependencies = [
- "cosmwasm-std",
- "cw-utils 0.13.4",
- "schemars",
- "serde",
-]
-
-[[package]]
-name = "cw1155"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4be0ebb4d95abc0e3f8ea00fbcf10afec5416b0aa1122c703de69850296897c5"
@@ -891,9 +879,9 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.10.5"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
+checksum = "25db6b064527c5d482d0423354fcd07a89a2dfe07b67892e62411946db7f07b0"
 dependencies = [
  "either",
 ]
@@ -964,17 +952,17 @@ dependencies = [
  "anyhow",
  "cosmwasm-schema 1.5.0",
  "cosmwasm-std",
- "cw-storage-plus 0.13.4",
- "cw1155 0.13.4",
- "cw2 0.13.4",
- "cw20 0.13.4",
- "cw20-base 0.13.4",
- "cw721 0.13.4",
+ "cw-storage-plus 1.2.0",
+ "cw2 1.1.2",
+ "cw721 0.18.0",
+ "cw721-base 0.18.0",
  "fee-contract-export",
  "fee-distributor-export",
  "nft-loans-export",
  "schemars",
  "serde",
+ "sg-std",
+ "sg721",
  "thiserror",
  "utils",
 ]
@@ -997,17 +985,15 @@ version = "0.9.0"
 dependencies = [
  "cosmwasm-schema 1.5.0",
  "cosmwasm-std",
- "cw-storage-plus 0.13.4",
- "cw1155 0.13.4",
- "cw2 0.13.4",
- "cw20 0.13.4",
- "cw20-base 0.13.4",
- "cw721 0.13.4",
+ "cw-storage-plus 1.2.0",
+ "cw2 1.1.2",
+ "cw721 0.18.0",
  "getrandom",
  "itertools",
  "p2p-trading-export",
  "schemars",
  "serde",
+ "sg721",
  "thiserror",
 ]
 
@@ -1091,7 +1077,7 @@ dependencies = [
  "cosmwasm-schema 1.5.0",
  "cosmwasm-std",
  "cw-storage-plus 1.2.0",
- "cw1155 0.16.0",
+ "cw1155",
  "cw2 1.1.2",
  "cw20 1.1.2",
  "cw721 0.18.0",
@@ -1119,12 +1105,12 @@ dependencies = [
  "cosmwasm-schema 1.5.0",
  "cosmwasm-std",
  "cw-storage-plus 1.2.0",
- "cw20 1.1.2",
  "cw20-base 1.1.2",
  "cw721 0.18.0",
  "schemars",
  "serde",
  "sg-std",
+ "sg721",
  "sg721-base",
  "strum 0.25.0",
  "strum_macros 0.25.3",
@@ -1164,6 +1150,7 @@ dependencies = [
  "cosmwasm-schema 1.5.0",
  "cosmwasm-std",
  "drand-verify",
+ "getrandom",
  "raffles-export",
  "rustc-serialize",
  "schemars",
@@ -1547,9 +1534,7 @@ dependencies = [
  "cosmwasm-schema 1.5.0",
  "cosmwasm-std",
  "cw-storage-plus 0.15.1",
- "cw20 0.15.1",
- "cw20-base 0.15.1",
- "cw721 0.15.0",
+ "cw721 0.18.0",
  "schemars",
  "serde",
  "strum 0.24.1",
