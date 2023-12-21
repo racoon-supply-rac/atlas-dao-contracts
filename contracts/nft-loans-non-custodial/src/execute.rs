@@ -669,7 +669,7 @@ pub fn _withdraw_loan(
         .collect()
 }
 
-pub fn _withdraw_asset(asset: &AssetInfo, sender: Addr, recipient: Addr) -> StdResult<CosmosMsg> {
+pub fn _withdraw_asset(asset: &AssetInfo, _sender: Addr, recipient: Addr) -> StdResult<CosmosMsg> {
     match asset {
         // AssetInfo::Cw1155Coin(cw1155) => into_cosmos_msg(
         //     Cw1155ExecuteMsg::SendFrom {
