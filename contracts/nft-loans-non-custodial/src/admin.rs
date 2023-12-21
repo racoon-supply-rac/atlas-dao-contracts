@@ -1,6 +1,5 @@
-use crate::state::{is_owner, CONTRACT_INFO};
-use anyhow::{Result, bail};
-use cosmwasm_std::{DepsMut, Env, MessageInfo, Response, Decimal, StdError};
+use crate::{state::{is_owner, CONTRACT_INFO}, error::ContractError};
+use cosmwasm_std::{DepsMut, Env, MessageInfo, Response, Decimal};
 
 /// Owner only function
 /// Proposes a new contract owner
@@ -13,7 +12,7 @@ pub fn set_owner(
     _env: Env,
     info: MessageInfo,
     new_owner: String,
-) -> Result<Response> {
+) -> Result<Response, ContractError> {
     let mut contract_info = is_owner(deps.storage, info.sender)?;
 
     contract_info.owner = contract_info.owner.propose_new_owner(deps.api.addr_validate(&new_owner)?);
@@ -29,7 +28,7 @@ pub fn claim_ownership(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-) -> Result<Response> {
+) -> Result<Response, ContractError> {
 
     let mut contract_info = CONTRACT_INFO.load(deps.storage)?;
 
@@ -50,7 +49,7 @@ pub fn set_fee_distributor(
     _env: Env,
     info: MessageInfo,
     new_distributor: String,
-) -> Result<Response> {
+) -> Result<Response, ContractError> {
     let mut contract_info = is_owner(deps.storage, info.sender)?;
 
     contract_info.fee_distributor = deps.api.addr_validate(&new_distributor)?;
@@ -71,14 +70,12 @@ pub fn set_fee_rate(
     _env: Env,
     info: MessageInfo,
     new_fee_rate: Decimal
-) -> Result<Response> {
+) -> Result<Response, ContractError> {
     let mut contract_info = is_owner(deps.storage, info.sender)?;
 
     // Check the fee distribution
     if new_fee_rate >= Decimal::one(){
-        bail!(StdError::generic_err(
-            "The Fee rate should be lower than 1"
-        ))
+        return Err(ContractError::NotAcceptable {});
     }
     contract_info.fee_rate = new_fee_rate;
     CONTRACT_INFO.save(deps.storage, &contract_info)?;

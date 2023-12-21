@@ -28,7 +28,7 @@ use crate::query::{
 };
 use crate::state::{get_raffle_state, is_owner, load_raffle, CONTRACT_INFO, RAFFLE_INFO};
 
-const CONTRACT_NAME: &str = "illiquidlabs.io:raffles";
+const CONTRACT_NAME: &str = "atlas-dao:raffles";
 const CONTRACT_VERSION: &str = "0.1.0";
 
 #[cfg_attr(not(feature = "library"), entry_point)]

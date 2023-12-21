@@ -16,7 +16,7 @@ library = []
 
 [dependencies]
 # CosmWasm
-cw20 = "1.1.2"
+sg721 = "3.3.0"
 cw721 = "0.18.0"
 cw-storage-plus = "1.2.0"
 cw20-base = { version = "1.1.2", features = ["library"] }

@@ -94,7 +94,7 @@ pub enum ExecuteMsg {
         ticket_number: u32,
         sent_assets: AssetInfo,
     },
-    Receive(cw20::Cw20ReceiveMsg),
+    Receive(cw721::Cw721ReceiveMsg),
     ClaimNft {
         raffle_id: u64,
     },
