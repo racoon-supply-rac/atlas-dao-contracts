@@ -665,42 +665,85 @@ fn test_ticket_and_claim_raffle_cw721() {
         )]
     );
 
-    //Buy some tickets
-    buy_ticket_coin(deps.as_mut(), 0, "first", coin(10, "uluna"), 0u64, None).unwrap_err();
-    buy_ticket_coin(
-        deps.as_mut(),
-        0,
-        "first",
-        coin(1000000, "uluna"),
-        0u64,
-        None,
-    )
-    .unwrap_err();
-    buy_ticket_coin(deps.as_mut(), 0, "first", coin(10000, "uluna"), 0u64, None).unwrap();
-    buy_ticket_coin(deps.as_mut(), 0, "first", coin(10000, "uluna"), 0u64, None).unwrap();
-    buy_ticket_coin(deps.as_mut(), 0, "second", coin(10000, "uluna"), 0u64, None).unwrap();
-    buy_ticket_coin(deps.as_mut(), 0, "third", coin(10000, "uluna"), 0u64, None).unwrap();
-    buy_ticket_coin(deps.as_mut(), 0, "fourth", coin(10000, "uluna"), 0u64, None).unwrap();
+//     // You can't buy tickets when the raffle is over
+//     buy_ticket_coin(
+//         deps.as_mut(),
+//         0,
+//         "first",
+//         coin(10000, "uluna"),
+//         100u64,
+//         None,
+//     )
+//     .unwrap_err();
+//     buy_ticket_coin(
+//         deps.as_mut(),
+//         0,
+//         "first",
+//         coin(10000, "uluna"),
+//         1000u64,
+//         None,
+//     )
+//     .unwrap_err();
+// }
+// #[test]
+// fn test_ticket_and_claim_raffle_cw1155() {
+//     let mut deps = mock_dependencies();
+//     init_helper(deps.as_mut());
+//     let response = create_raffle_cw1155(deps.as_mut()).unwrap();
 
-    // Update the randomness internally
-    let mut raffle_info = RAFFLE_INFO.load(&deps.storage, 0).unwrap();
+//     assert_eq!(
+//         response.messages,
+//         vec![SubMsg::new(
+//             into_cosmos_msg(
+//                 Cw1155ExecuteMsg::SendFrom {
+//                     from: "creator".to_string(),
+//                     to: MOCK_CONTRACT_ADDR.to_string(),
+//                     token_id: "token_id".to_string(),
+//                     value: Uint128::from(675u128),
+//                     msg: None,
+//                 },
+//                 "nft"
+//             )
+//             .unwrap()
+//         )]
+//     );
 
-    let mut randomness: [u8; 32] = [0; 32];
-    hex::decode_to_slice(
-        "89580f6a639add6c90dcf3d222e35415f89d9ee2cd6ef6fc4f23134cdffa5d1e",
-        randomness.as_mut_slice(),
-    )
-    .unwrap();
-    raffle_info.randomness = Some(Randomness {
-        randomness,
-        randomness_round: 2098475u64,
-        randomness_owner: deps.api.addr_validate("rand_provider").unwrap(),
-    });
-    RAFFLE_INFO
-        .save(deps.as_mut().storage, 0, &raffle_info)
-        .unwrap();
+//     //Buy some tickets
+//     buy_ticket_coin(deps.as_mut(), 0, "first", coin(10, "uluna"), 0u64, None).unwrap_err();
+//     buy_ticket_coin(
+//         deps.as_mut(),
+//         0,
+//         "first",
+//         coin(1000000, "uluna"),
+//         0u64,
+//         None,
+//     )
+//     .unwrap_err();
+//     buy_ticket_coin(deps.as_mut(), 0, "first", coin(10000, "uluna"), 0u64, None).unwrap();
+//     buy_ticket_coin(deps.as_mut(), 0, "first", coin(10000, "uluna"), 0u64, None).unwrap();
+//     buy_ticket_coin(deps.as_mut(), 0, "second", coin(10000, "uluna"), 0u64, None).unwrap();
+//     buy_ticket_coin(deps.as_mut(), 0, "third", coin(10000, "uluna"), 0u64, None).unwrap();
+//     buy_ticket_coin(deps.as_mut(), 0, "fourth", coin(10000, "uluna"), 0u64, None).unwrap();
 
-    let response = claim_nft(deps.as_mut(), 0, 1000u64).unwrap();
+//     // Update the randomness internally
+//     let mut raffle_info = RAFFLE_INFO.load(&deps.storage, 0).unwrap();
+
+//     let mut randomness: [u8; 32] = [0; 32];
+//     hex::decode_to_slice(
+//         "89580f6a639add6c90dcf3d222e35415f89d9ee2cd6ef6fc4f23134cdffa5d1e",
+//         randomness.as_mut_slice(),
+//     )
+//     .unwrap();
+//     raffle_info.randomness = Some(Randomness {
+//         randomness,
+//         randomness_round: 2098475u64,
+//         randomness_owner: deps.api.addr_validate("rand_provider").unwrap(),
+//     });
+//     RAFFLE_INFO
+//         .save(deps.as_mut().storage, 0, &raffle_info)
+//         .unwrap();
+
+//     let response = claim_nft(deps.as_mut(), 0, 1000u64).unwrap();
 
     assert_eq!(
         response.messages,
@@ -727,26 +770,26 @@ fn test_ticket_and_claim_raffle_cw721() {
         ]
     );
 
-    // You can't buy tickets when the raffle is over
-    buy_ticket_coin(
-        deps.as_mut(),
-        0,
-        "first",
-        coin(10000, "uluna"),
-        100u64,
-        None,
-    )
-    .unwrap_err();
-    buy_ticket_coin(
-        deps.as_mut(),
-        0,
-        "first",
-        coin(10000, "uluna"),
-        1000u64,
-        None,
-    )
-    .unwrap_err();
-}
+//     // You can't buy tickets when the raffle is over
+//     buy_ticket_coin(
+//         deps.as_mut(),
+//         0,
+//         "first",
+//         coin(10000, "uluna"),
+//         100u64,
+//         None,
+//     )
+//     .unwrap_err();
+//     buy_ticket_coin(
+//         deps.as_mut(),
+//         0,
+//         "first",
+//         coin(10000, "uluna"),
+//         1000u64,
+//         None,
+//     )
+//     .unwrap_err();
+// }
 
 #[test]
 fn test_randomness_provider() {

@@ -1,5 +1,7 @@
+
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{entry_point, Binary, Deps, DepsMut, Env, MessageInfo, Response,to_json_binary, StdResult};
+
 
 use utils::state::OwnerStruct;
 
@@ -123,6 +125,7 @@ pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, 
     Ok(Response::default())
 }
 
+  
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
