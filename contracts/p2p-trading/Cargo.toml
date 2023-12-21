@@ -30,13 +30,13 @@ cw-storage-plus = "1.2.0"
 
 # Other Modules
 itertools = "0.12.0"
-schemars = "0.8.1"
-serde = { version = "1.0.103", default-features = false, features = ["derive"] }
-thiserror = { version = "1.0.23" }
+schemars = "0.8.16"
+serde = { version = "1.0.193", default-features = false, features = ["derive"] }
+thiserror = { version = "1.0.51" }
 
 # Local Modules
 p2p-trading-export = { path = "../../packages/p2p-trading", version = "0.1.0" }
 
 [dev-dependencies]
-cosmwasm-schema = { version = "1.0.0" }
-getrandom = { version="^0.2", features = ["js"] }
+cosmwasm-schema = { version = "1.5.0" }
+getrandom = { version="^0.2.11", features = ["js"] }

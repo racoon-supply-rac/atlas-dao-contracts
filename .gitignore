@@ -2,3 +2,8 @@ target/
 kcov-master/
 kcov-v40/
 wallets
+artifacts/
+
+.DS_Store
+contracts/.DS_Store
+packages/.DS_Store

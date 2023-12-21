@@ -22,7 +22,7 @@ use raffles_export::state::{
 };
 
 use crate::contract::{execute, instantiate, query, verify};
-use crate::error::ContractError;
+use crate::error::{ContractError, self};
 use crate::state::{CONTRACT_INFO, RAFFLE_INFO};
 
 // use cw1155::Cw1155ExecuteMsg;
@@ -33,8 +33,8 @@ use crate::testing::mock_querier::mock_querier_dependencies;
 
 const HEX_PUBKEY: &str = "868f005eb8e6e4ca0a47c8a77ceaa5309a47978a7c71bc5cce96366b5d7a569937c529eeda66c7293784a9402801af31";
 
-pub fn assert_error(err: anyhow::Error, contract_error: ContractError) {
-    assert_eq!(err.downcast::<ContractError>().unwrap(), contract_error)
+pub fn assert_error(err: ContractError, contract_error: ContractError) {
+    assert_eq!(err, contract_error)
 }
 
 fn init_helper(deps: DepsMut) {

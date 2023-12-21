@@ -4,7 +4,7 @@ use cosmwasm_std::{Addr, Coin, StdError, StdResult, Storage, Uint128};
 
 use crate::error::ContractError;
 use p2p_trading_export::state::{
-    AssetInfo, ContractInfo, Cw1155Coin, Cw20Coin, Cw721Coin, TradeInfo, TradeState,
+    AssetInfo, ContractInfo, Cw721Coin, TradeInfo, TradeState,
 };
 
 pub const CONTRACT_INFO: Item<ContractInfo> = Item::new("contract_info");

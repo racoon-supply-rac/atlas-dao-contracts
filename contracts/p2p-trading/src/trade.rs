@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    to_binary, Addr, Api, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError,
-    StdResult, Storage, Uint128, to_json_binary,
+    to_json_binary, Addr, Api, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError,
+    StdResult, Storage, Uint128,
 };
 
 use std::collections::HashSet;
@@ -147,7 +147,7 @@ pub fn prepare_harmless_trade_modifications(
 
 pub fn _create_receive_asset_messages(
     env: Env,
-    info: MessageInfo,
+    _info: MessageInfo,
     asset: AssetInfo,
 ) -> Result<Response, ContractError> {
     Ok(match asset {
@@ -457,7 +457,7 @@ pub fn _try_withdraw_assets_unsafe(
 /// We must always verify the sender has the right to withdraw before calling this function
 #[allow(clippy::ptr_arg)]
 pub fn _create_withdraw_messages_unsafe(
-    contract_address: &Addr,
+    _contract_address: &Addr,
     recipient: &Addr,
     assets: &Vec<AssetInfo>,
 ) -> Result<Response, ContractError> {
@@ -722,7 +722,8 @@ pub fn add_tokens_wanted(
     // We validate the tokens_wanted structure
     for token in tokens_wanted.clone() {
         match token {
-            AssetInfo::Coin(_) | AssetInfo::Coin(_) => Ok(()),
+            AssetInfo::Coin(_) => Ok(()),
+            // AssetInfo::Cw721Coin(_) => Ok(()),
             _ => Err(ContractError::WrongTokenType {}),
         }?
     }
@@ -731,7 +732,7 @@ pub fn add_tokens_wanted(
     let hash_set: HashSet<Binary> = HashSet::from_iter(
         tokens_wanted
             .iter()
-            .map(to_binary)
+            .map(to_json_binary)
             .collect::<Result<Vec<Binary>, StdError>>()?,
     );
 
@@ -765,7 +766,7 @@ pub fn remove_tokens_wanted(
     // We modify the whitelist
     let parse_nfts_wanted = tokens_wanted
         .iter()
-        .map(to_binary)
+        .map(to_json_binary)
         .collect::<Result<Vec<Binary>, StdError>>()?;
 
     for token in &parse_nfts_wanted {
@@ -796,7 +797,8 @@ pub fn set_tokens_wanted(
     // We validate the tokens_wanted structure
     for token in tokens_wanted.clone() {
         match token {
-            AssetInfo::Coin(_) | AssetInfo::Coin(_) => Ok(()),
+            AssetInfo::Coin(_) => Ok(()),
+            // AssetInfo::Cw721Coin(_) => Ok(()),
             _ => Err(ContractError::WrongTokenType {}),
         }?
     }
