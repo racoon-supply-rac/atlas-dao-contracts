@@ -5,7 +5,7 @@ use p2p_trading_export::state::{AdditionalTradeInfo, AssetInfo, TradeInfo, Trade
 use crate::error::ContractError;
 use crate::messages::set_comment;
 use crate::state::{
-    add_cw1155_coin, add_cw20_coin, add_cw721_coin, add_funds, can_suggest_counter_trade,
+     add_cw721_coin, add_funds, can_suggest_counter_trade,
     is_counter_trader, load_trade, COUNTER_TRADE_INFO, LAST_USER_COUNTER_TRADE, TRADE_INFO,
 };
 use crate::trade::{
@@ -138,21 +138,21 @@ pub fn add_asset_to_counter_trade(
             (trade_id, counter_id),
             add_funds(coin, info.funds.clone()),
         ),
-        AssetInfo::Cw20Coin(token) => COUNTER_TRADE_INFO.update(
-            deps.storage,
-            (trade_id, counter_id),
-            add_cw20_coin(token.address.clone(), token.amount),
-        ),
+        // AssetInfo::Cw20Coin(token) => COUNTER_TRADE_INFO.update(
+        //     deps.storage,
+        //     (trade_id, counter_id),
+        //     add_cw20_coin(token.address.clone(), token.amount),
+        // ),
         AssetInfo::Cw721Coin(token) => COUNTER_TRADE_INFO.update(
             deps.storage,
             (trade_id, counter_id),
             add_cw721_coin(token.address.clone(), token.token_id),
         ),
-        AssetInfo::Cw1155Coin(token) => COUNTER_TRADE_INFO.update(
-            deps.storage,
-            (trade_id, counter_id),
-            add_cw1155_coin(token.address.clone(), token.token_id.clone(), token.value),
-        ),
+        // AssetInfo::Cw1155Coin(token) => COUNTER_TRADE_INFO.update(
+        //     deps.storage,
+        //     (trade_id, counter_id),
+        //     add_cw1155_coin(token.address.clone(), token.token_id.clone(), token.value),
+        // ),
     }?;
 
     // We load the trade_info for events
@@ -193,17 +193,17 @@ pub fn withdraw_counter_trade_assets_while_creating(
                     counter_info.additional_info.trade_preview = None;
                 }
             }
-            AssetInfo::Cw1155Coin(preview_coin) => {
-                if assets.iter().any(|r| match r.1.clone() {
-                    AssetInfo::Cw1155Coin(coin) => {
-                        coin.address == preview_coin.address
-                            && coin.token_id == preview_coin.token_id
-                    }
-                    _ => false,
-                }) {
-                    counter_info.additional_info.trade_preview = None;
-                }
-            }
+            // AssetInfo::Cw1155Coin(preview_coin) => {
+            //     if assets.iter().any(|r| match r.1.clone() {
+            //         AssetInfo::Cw1155Coin(coin) => {
+            //             coin.address == preview_coin.address
+            //                 && coin.token_id == preview_coin.token_id
+            //         }
+            //         _ => false,
+            //     }) {
+            //         counter_info.additional_info.trade_preview = None;
+            //     }
+            // }
             _ => {}
         }
     }

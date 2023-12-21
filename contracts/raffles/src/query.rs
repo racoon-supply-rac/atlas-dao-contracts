@@ -68,10 +68,10 @@ pub fn raffle_filter(
                     .iter()
                     .any(|asset| match asset {
                         AssetInfo::Coin(x) => x.denom == token.as_ref(),
-                        AssetInfo::Cw20Coin(x) => x.address == token.as_ref(),
+                        // AssetInfo::Cw20Coin(x) => x.address == token.as_ref(),
                         AssetInfo::Cw721Coin(x) => x.address == token.as_ref(),
-                        AssetInfo::Cw1155Coin(x) => x.address == token.as_ref(),
-                        AssetInfo::Sg721Token(x) => x.address == token.as_ref(),
+                        // AssetInfo::Cw1155Coin(x) => x.address == token.as_ref(),
+                        // AssetInfo::Sg721Token(x) => x.address == token.as_ref(),
                     })
             }
             None => true,

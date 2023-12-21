@@ -1,4 +1,5 @@
-use anyhow::{bail, Result};
+
+use cosmwasm_std::StdError;
 use cosmwasm_std::StdResult;
 use cw_storage_plus::Index;
 use cw_storage_plus::IndexList;
@@ -42,20 +43,20 @@ impl<'a> IndexList<OfferInfo> for LenderOfferIndexes<'a> {
     }
 }
 
-pub fn lender_offers<'a>() -> IndexedMap<'a, &'a str, OfferInfo, LenderOfferIndexes<'a>> {
+pub fn lender_offers<'a>() -> IndexedMap<'a, &'a str, OfferInfo, LenderOfferIndexes<'a>,> {
     let indexes = LenderOfferIndexes {
         lender: MultiIndex::new(
-            |d: &OfferInfo| d.lender.clone(),
+            | _, d: &OfferInfo | d.lender.clone(),
             "lender_offers",
             "lender_offers__lenderr",
         ),
         borrower: MultiIndex::new(
-            |d: &OfferInfo| d.borrower.clone(),
+            | _, d: &OfferInfo| d.borrower.clone(),
             "lender_offers",
             "lender_offers__borrower",
         ),
         loan: MultiIndex::new(
-            |d: &OfferInfo| (d.borrower.clone(), d.loan_id),
+            | _, d: &OfferInfo| (d.borrower.clone(), d.loan_id),
             "lender_offers",
             "lender_offers__collateral",
         ),
@@ -63,58 +64,58 @@ pub fn lender_offers<'a>() -> IndexedMap<'a, &'a str, OfferInfo, LenderOfferInde
     IndexedMap::new("lender_offers", indexes)
 }
 
-pub fn is_owner(storage: &dyn Storage, sender: Addr) -> Result<ContractInfo> {
+pub fn is_owner(storage: &dyn Storage, sender: Addr) -> Result<ContractInfo, ContractError> {
     let contract_info = CONTRACT_INFO.load(storage)?;
     if sender == contract_info.owner.owner {
         Ok(contract_info)
     } else {
-        bail!(ContractError::Unauthorized {})
+        return Err(ContractError::Unauthorized {})
     }
 }
 
-pub fn is_collateral_withdrawable(collateral: &CollateralInfo) -> Result<()> {
+pub fn is_collateral_withdrawable(collateral: &CollateralInfo) -> Result<(), ContractError> {
     match collateral.state {
         LoanState::Published => Ok(()),
-        _ => bail!(ContractError::NotWithdrawable {}),
+        _ => return Err(ContractError::NotWithdrawable {}),
     }
 }
 
-pub fn is_loan_modifiable(collateral: &CollateralInfo) -> Result<()> {
+pub fn is_loan_modifiable(collateral: &CollateralInfo) -> Result<(), ContractError> {
     match collateral.state {
         LoanState::Published => Ok(()),
-        _ => bail!(ContractError::NotModifiable {}),
+        _ => return Err(ContractError::NotModifiable {}),
     }
 }
 
-pub fn is_loan_acceptable(collateral: &CollateralInfo) -> Result<()> {
+pub fn is_loan_acceptable(collateral: &CollateralInfo) -> Result<(), ContractError> {
     match collateral.state {
         LoanState::Published => Ok(()),
-        _ => bail!(ContractError::NotAcceptable {}),
+        _ => return Err(ContractError::NotAcceptable {}),
     }
 }
 
-pub fn is_loan_counterable(collateral: &CollateralInfo) -> Result<()> {
+pub fn is_loan_counterable(collateral: &CollateralInfo) -> Result<(), ContractError> {
     match collateral.state {
         LoanState::Published => Ok(()),
-        _ => bail!(ContractError::NotCounterable {}),
+        _ => return Err(ContractError::NotCounterable {}),
     }
 }
 
-pub fn is_offer_refusable(collateral: &CollateralInfo, offer_info: &OfferInfo) -> Result<()> {
+pub fn is_offer_refusable(collateral: &CollateralInfo, offer_info: &OfferInfo) -> Result<(), ContractError> {
     is_loan_counterable(collateral).map_err(|_| ContractError::NotRefusable {  })?;
     match offer_info.state {
         OfferState::Published => Ok(()),
-        _ => bail!(ContractError::NotRefusable {}),
+        _ => return Err(ContractError::NotRefusable {}),
     }
 }
 
-pub fn can_repay_loan(storage: &dyn Storage, env: Env, collateral: &CollateralInfo) -> Result<()> {
+pub fn can_repay_loan(storage: &dyn Storage, env: Env, collateral: &CollateralInfo) -> Result<(), ContractError> {
     if is_loan_defaulted(storage, env, collateral).is_ok() {
-        bail!(ContractError::WrongLoanState {
+        return Err(ContractError::WrongLoanState {
             state: LoanState::Defaulted {},
         })
     } else if collateral.state != LoanState::Started {
-        bail!(ContractError::WrongLoanState {
+        return Err(ContractError::WrongLoanState {
             state: collateral.state.clone(),
         })
     } else {
@@ -126,38 +127,38 @@ pub fn is_loan_defaulted(
     storage: &dyn Storage,
     env: Env,
     collateral: &CollateralInfo,
-) -> Result<()> {
+) -> Result<(), ContractError> {
     // If there is no offer, the loan can't be defaulted
-    let offer = get_active_loan(storage, collateral)?;
+    let offer: OfferInfo = get_active_loan(storage, collateral)?;
     match &collateral.state {
         LoanState::Started => {
             if collateral.start_block.unwrap() + offer.terms.duration_in_blocks < env.block.height {
                 Ok(())
             } else {
-                bail!(ContractError::WrongLoanState {
+                return Err(ContractError::WrongLoanState {
                     state: LoanState::Started,
                 })
             }
         }
         LoanState::Defaulted => Ok(()),
-        _ => bail!(ContractError::WrongLoanState {
+        _ => return Err(ContractError::WrongLoanState {
             state: collateral.state.clone(),
         }),
     }
 }
 
-pub fn get_active_loan(storage: &dyn Storage, collateral: &CollateralInfo) -> Result<OfferInfo> {
+pub fn get_active_loan(storage: &dyn Storage, collateral: &CollateralInfo) -> Result<OfferInfo, ContractError> {
     let global_offer_id = collateral
         .active_offer
         .as_ref()
         .ok_or(ContractError::OfferNotFound {})?;
-    get_offer(storage, global_offer_id)
+    Ok(get_offer(storage, global_offer_id)?)
 }
 
-pub fn is_lender(storage: &dyn Storage, lender: Addr, global_offer_id: &str) -> Result<OfferInfo> {
+pub fn is_lender(storage: &dyn Storage, lender: Addr, global_offer_id: &str) -> Result<OfferInfo, ContractError> {
     let offer = get_offer(storage, global_offer_id)?;
     if lender != offer.lender {
-        bail!(ContractError::Unauthorized {});
+        return Err(ContractError::Unauthorized {});
     }
     Ok(offer)
 }
@@ -166,10 +167,10 @@ pub fn is_offer_borrower(
     storage: &dyn Storage,
     borrower: Addr,
     global_offer_id: &str,
-) -> Result<OfferInfo> {
+) -> Result<OfferInfo, ContractError> {
     let offer = get_offer(storage, global_offer_id)?;
     if borrower != offer.borrower {
-        bail!(ContractError::Unauthorized {});
+        return Err(ContractError::Unauthorized {});
     }
     Ok(offer)
 }
@@ -178,10 +179,10 @@ pub fn is_active_lender(
     storage: &dyn Storage,
     lender: Addr,
     collateral: &CollateralInfo,
-) -> Result<OfferInfo> {
+) -> Result<OfferInfo, ContractError> {
     let offer = get_active_loan(storage, collateral)?;
     if lender != offer.lender {
-        bail!(ContractError::Unauthorized {});
+        return Err(ContractError::Unauthorized {});
     }
     Ok(offer)
 }
@@ -194,17 +195,17 @@ pub fn save_offer(
     lender_offers().save(storage, global_offer_id, &offer_info)
 }
 
-pub fn get_offer(storage: &dyn Storage, global_offer_id: &str) -> Result<OfferInfo> {
+pub fn get_offer(storage: &dyn Storage, global_offer_id: &str) -> StdResult<OfferInfo> {
     let mut offer_info = lender_offers()
         .load(storage, global_offer_id)
-        .map_err(|_| ContractError::OfferNotFound {})?;
+        .map_err(|_| StdError::generic_err("invalid offer"))?;
 
     offer_info.state = get_actual_state(&offer_info, storage)?;
 
     Ok(offer_info)
 }
 
-pub fn get_actual_state(offer_info: &OfferInfo, storage: &dyn Storage) -> Result<OfferState>{
+pub fn get_actual_state(offer_info: &OfferInfo, storage: &dyn Storage) -> StdResult<OfferState>{
     let collateral_info =
         COLLATERAL_INFO.load(storage, (offer_info.borrower.clone(), offer_info.loan_id))?;
 

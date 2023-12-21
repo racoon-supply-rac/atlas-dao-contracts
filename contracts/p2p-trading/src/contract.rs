@@ -1,6 +1,6 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{
-    entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
+    entry_point, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
 };
 use cw2::set_contract_version;
 
@@ -215,15 +215,15 @@ pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::ContractInfo {} => to_binary(&query_contract_info(deps)?),
-        QueryMsg::TradeInfo { trade_id } => to_binary(
+        QueryMsg::ContractInfo {} => to_json_binary(&query_contract_info(deps)?),
+        QueryMsg::TradeInfo { trade_id } => to_json_binary(
             &query_trade(deps.storage, trade_id)
                 .map_err(|e| StdError::generic_err(e.to_string()))?,
         ),
         QueryMsg::CounterTradeInfo {
             trade_id,
             counter_id,
-        } => to_binary(
+        } => to_json_binary(
             &query_counter_trade(deps.storage, trade_id, counter_id)
                 .map_err(|e| StdError::generic_err(e.to_string()))?,
         ),
@@ -231,7 +231,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             start_after,
             limit,
             filters,
-        } => to_binary(&query_all_counter_trades(
+        } => to_json_binary(&query_all_counter_trades(
             deps,
             start_after,
             limit,
@@ -242,7 +242,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             start_after,
             limit,
             filters,
-        } => to_binary(&query_counter_trades(
+        } => to_json_binary(&query_counter_trades(
             deps,
             trade_id,
             start_after,
@@ -253,7 +253,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             start_after,
             limit,
             filters,
-        } => to_binary(&query_all_trades(deps, start_after, limit, filters)?),
+        } => to_json_binary(&query_all_trades(deps, start_after, limit, filters)?),
     }
 }
 
@@ -406,8 +406,9 @@ pub mod tests {
     use crate::state::load_trade;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
     use cosmwasm_std::{coins, Addr, Attribute, BankMsg, Coin, Uint128};
-    use cw1155::Cw1155ExecuteMsg;
-    use cw20::Cw20ExecuteMsg;
+    // use cw1155::Cw1155ExecuteMsg;
+    // use cw20::Cw20ExecuteMsg;
+
     use cw721::Cw721ExecuteMsg;
     use p2p_trading_export::msg::into_cosmos_msg;
     use p2p_trading_export::state::{AssetInfo, Cw1155Coin, Cw20Coin, Cw721Coin};
@@ -1147,150 +1148,150 @@ pub mod tests {
             );
         }
 
-        #[test]
-        fn create_trade_and_add_cw20_tokens() {
-            let mut deps = mock_dependencies();
-            init_helper(deps.as_mut());
+        // #[test]
+        // fn create_trade_and_add_cw20_tokens() {
+        //     let mut deps = mock_dependencies();
+        //     init_helper(deps.as_mut());
 
-            create_trade_helper(deps.as_mut(), "creator");
+        //     create_trade_helper(deps.as_mut(), "creator");
 
-            let res = add_asset_to_trade_helper(
-                deps.as_mut(),
-                "creator",
-                0,
-                AssetInfo::Cw20Coin(Cw20Coin {
-                    address: "token".to_string(),
-                    amount: Uint128::new(100u128),
-                }),
-                &[],
-            )
-            .unwrap();
+        //     let res = add_asset_to_trade_helper(
+        //         deps.as_mut(),
+        //         "creator",
+        //         0,
+        //         AssetInfo::Cw20Coin(Cw20Coin {
+        //             address: "token".to_string(),
+        //             amount: Uint128::new(100u128),
+        //         }),
+        //         &[],
+        //     )
+        //     .unwrap();
 
-            assert_eq!(
-                res.attributes,
-                vec![
-                    Attribute::new("action", "add_asset"),
-                    Attribute::new("asset_type", "token"),
-                    Attribute::new("token", "token"),
-                    Attribute::new("amount", "100"),
-                    Attribute::new("trade_id", "0"),
-                    Attribute::new("trader", "creator"),
-                ]
-            );
-            add_asset_to_trade_helper(
-                deps.as_mut(),
-                "creator",
-                0,
-                AssetInfo::Cw20Coin(Cw20Coin {
-                    address: "token".to_string(),
-                    amount: Uint128::new(100u128),
-                }),
-                &[],
-            )
-            .unwrap();
+        //     assert_eq!(
+        //         res.attributes,
+        //         vec![
+        //             Attribute::new("action", "add_asset"),
+        //             Attribute::new("asset_type", "token"),
+        //             Attribute::new("token", "token"),
+        //             Attribute::new("amount", "100"),
+        //             Attribute::new("trade_id", "0"),
+        //             Attribute::new("trader", "creator"),
+        //         ]
+        //     );
+        //     add_asset_to_trade_helper(
+        //         deps.as_mut(),
+        //         "creator",
+        //         0,
+        //         AssetInfo::Cw20Coin(Cw20Coin {
+        //             address: "token".to_string(),
+        //             amount: Uint128::new(100u128),
+        //         }),
+        //         &[],
+        //     )
+        //     .unwrap();
 
-            add_asset_to_trade_helper(
-                deps.as_mut(),
-                "creator",
-                0,
-                AssetInfo::Cw20Coin(Cw20Coin {
-                    address: "other_token".to_string(),
-                    amount: Uint128::new(100u128),
-                }),
-                &[],
-            )
-            .unwrap();
+        //     add_asset_to_trade_helper(
+        //         deps.as_mut(),
+        //         "creator",
+        //         0,
+        //         AssetInfo::Cw20Coin(Cw20Coin {
+        //             address: "other_token".to_string(),
+        //             amount: Uint128::new(100u128),
+        //         }),
+        //         &[],
+        //     )
+        //     .unwrap();
 
-            let new_trade_info = load_trade(&deps.storage, 0).unwrap();
-            assert_eq!(
-                new_trade_info.associated_assets,
-                vec![
-                    AssetInfo::Cw20Coin(Cw20Coin {
-                        amount: Uint128::from(200u64),
-                        address: "token".to_string()
-                    }),
-                    AssetInfo::Cw20Coin(Cw20Coin {
-                        amount: Uint128::from(100u64),
-                        address: "other_token".to_string()
-                    })
-                ]
-            );
+        //     let new_trade_info = load_trade(&deps.storage, 0).unwrap();
+        //     assert_eq!(
+        //         new_trade_info.associated_assets,
+        //         vec![
+        //             AssetInfo::Cw20Coin(Cw20Coin {
+        //                 amount: Uint128::from(200u64),
+        //                 address: "token".to_string()
+        //             }),
+        //             AssetInfo::Cw20Coin(Cw20Coin {
+        //                 amount: Uint128::from(100u64),
+        //                 address: "other_token".to_string()
+        //             })
+        //         ]
+        //     );
 
-            // Verify the token contain query
-            let res = query_all_trades(
-                deps.as_ref(),
-                None,
-                None,
-                Some(QueryFilters {
-                    contains_token: Some("other_token".to_string()),
-                    ..Default::default()
-                }),
-            )
-            .unwrap();
+        //     // Verify the token contain query
+        //     let res = query_all_trades(
+        //         deps.as_ref(),
+        //         None,
+        //         None,
+        //         Some(QueryFilters {
+        //             contains_token: Some("other_token".to_string()),
+        //             ..Default::default()
+        //         }),
+        //     )
+        //     .unwrap();
 
-            let env = mock_env();
-            assert_eq!(
-                res.trades,
-                vec![{
-                    TradeResponse {
-                        trade_id: 0,
-                        counter_id: None,
-                        trade_info: Some(TradeInfoResponse {
-                            owner: deps.api.addr_validate("creator").unwrap(),
-                            state: TradeState::Created,
-                            associated_assets: vec![
-                                AssetInfo::Cw20Coin(Cw20Coin {
-                                    amount: Uint128::from(200u64),
-                                    address: "token".to_string(),
-                                }),
-                                AssetInfo::Cw20Coin(Cw20Coin {
-                                    amount: Uint128::from(100u64),
-                                    address: "other_token".to_string(),
-                                }),
-                            ],
-                            additional_info: AdditionalTradeInfoResponse {
-                                owner_comment: Some(Comment {
-                                    comment: "Q".to_string(),
-                                    time: env.block.time,
-                                }),
-                                time: env.block.time,
-                                ..Default::default()
-                            },
-                            ..Default::default()
-                        }),
-                    }
-                }]
-            );
+        //     let env = mock_env();
+        //     assert_eq!(
+        //         res.trades,
+        //         vec![{
+        //             TradeResponse {
+        //                 trade_id: 0,
+        //                 counter_id: None,
+        //                 trade_info: Some(TradeInfoResponse {
+        //                     owner: deps.api.addr_validate("creator").unwrap(),
+        //                     state: TradeState::Created,
+        //                     associated_assets: vec![
+        //                         AssetInfo::Cw20Coin(Cw20Coin {
+        //                             amount: Uint128::from(200u64),
+        //                             address: "token".to_string(),
+        //                         }),
+        //                         AssetInfo::Cw20Coin(Cw20Coin {
+        //                             amount: Uint128::from(100u64),
+        //                             address: "other_token".to_string(),
+        //                         }),
+        //                     ],
+        //                     additional_info: AdditionalTradeInfoResponse {
+        //                         owner_comment: Some(Comment {
+        //                             comment: "Q".to_string(),
+        //                             time: env.block.time,
+        //                         }),
+        //                         time: env.block.time,
+        //                         ..Default::default()
+        //                     },
+        //                     ..Default::default()
+        //                 }),
+        //             }
+        //         }]
+        //     );
 
-            // Verify it works when querying another token
-            let res = query_all_trades(
-                deps.as_ref(),
-                None,
-                None,
-                Some(QueryFilters {
-                    contains_token: Some("bad_token".to_string()),
-                    ..Default::default()
-                }),
-            )
-            .unwrap();
-            assert_eq!(res.trades, vec![]);
+        //     // Verify it works when querying another token
+        //     let res = query_all_trades(
+        //         deps.as_ref(),
+        //         None,
+        //         None,
+        //         Some(QueryFilters {
+        //             contains_token: Some("bad_token".to_string()),
+        //             ..Default::default()
+        //         }),
+        //     )
+        //     .unwrap();
+        //     assert_eq!(res.trades, vec![]);
 
-            // This triggers an error, the creator is not the same as the sender
+        //     // This triggers an error, the creator is not the same as the sender
 
-            let err = add_asset_to_trade_helper(
-                deps.as_mut(),
-                "bad_person",
-                0,
-                AssetInfo::Cw20Coin(Cw20Coin {
-                    address: "other_token".to_string(),
-                    amount: Uint128::new(100u128),
-                }),
-                &[],
-            )
-            .unwrap_err();
+        //     let err = add_asset_to_trade_helper(
+        //         deps.as_mut(),
+        //         "bad_person",
+        //         0,
+        //         AssetInfo::Cw20Coin(Cw20Coin {
+        //             address: "other_token".to_string(),
+        //             amount: Uint128::new(100u128),
+        //         }),
+        //         &[],
+        //     )
+        //     .unwrap_err();
 
-            assert_eq!(err, ContractError::TraderNotCreator {});
-        }
+        //     assert_eq!(err, ContractError::TraderNotCreator {});
+        // }
 
         #[test]
         fn create_trade_and_add_cw721_tokens() {
@@ -1348,65 +1349,66 @@ pub mod tests {
             assert_eq!(err, ContractError::TraderNotCreator {});
         }
 
-        #[test]
-        fn create_trade_and_add_cw1155_tokens() {
-            let mut deps = mock_dependencies();
-            init_helper(deps.as_mut());
+        // #[test]
+        // fn create_trade_and_add_cw1155_tokens() {
+        //     let mut deps = mock_dependencies();
+        //     init_helper(deps.as_mut());
 
-            create_trade_helper(deps.as_mut(), "creator");
+        //     create_trade_helper(deps.as_mut(), "creator");
 
-            let res = add_asset_to_trade_helper(
-                deps.as_mut(),
-                "creator",
-                0,
-                AssetInfo::Cw1155Coin(Cw1155Coin {
-                    address: "1155".to_string(),
-                    token_id: "58".to_string(),
-                    value: Uint128::new(50u128),
-                }),
-                &[],
-            )
-            .unwrap();
+        //     let res = add_asset_to_trade_helper(
+        //         deps.as_mut(),
+        //         "creator",
+        //         0,
+        //         AssetInfo::Cw1155Coin(Cw1155Coin {
+        //             address: "1155".to_string(),
+        //             token_id: "58".to_string(),
+        //             value: Uint128::new(50u128),
+        //         }),
+        //         &[],
+        //     )
+        //     .unwrap();
 
-            assert_eq!(
-                res.attributes,
-                vec![
-                    Attribute::new("action", "add_asset"),
-                    Attribute::new("asset_type", "cw1155"),
-                    Attribute::new("token", "1155"),
-                    Attribute::new("token_id", "58"),
-                    Attribute::new("amount", "50"),
-                    Attribute::new("trade_id", "0"),
-                    Attribute::new("trader", "creator"),
-                ]
-            );
+        //     assert_eq!(
+        //         res.attributes,
+        //         vec![
+        //             Attribute::new("action", "add_asset"),
+        //             Attribute::new("asset_type", "cw1155"),
+        //             Attribute::new("token", "1155"),
+        //             Attribute::new("token_id", "58"),
+        //             Attribute::new("amount", "50"),
+        //             Attribute::new("trade_id", "0"),
+        //             Attribute::new("trader", "creator"),
+        //         ]
+        //     );
 
-            let new_trade_info = load_trade(&deps.storage, 0).unwrap();
-            assert_eq!(
-                new_trade_info.associated_assets,
-                vec![AssetInfo::Cw1155Coin(Cw1155Coin {
-                    token_id: "58".to_string(),
-                    address: "1155".to_string(),
-                    value: Uint128::from(50u128)
-                })]
-            );
+        //     let new_trade_info = load_trade(&deps.storage, 0).unwrap();
+        //     assert_eq!(
+        //         new_trade_info.associated_assets,
+        //         vec![AssetInfo::Cw1155Coin(Cw1155Coin {
+        //             token_id: "58".to_string(),
+        //             address: "1155".to_string(),
+        //             value: Uint128::from(50u128)
+        //         })]
+        //     );
 
-            // This triggers an error, the creator is not the same as the sender
-            let err = add_asset_to_trade_helper(
-                deps.as_mut(),
-                "bad_person",
-                0,
-                AssetInfo::Cw1155Coin(Cw1155Coin {
-                    address: "1155".to_string(),
-                    token_id: "58".to_string(),
-                    value: Uint128::new(50u128),
-                }),
-                &[],
-            )
-            .unwrap_err();
+        //     // This triggers an error, the creator is not the same as the sender
+        //     let err = add_asset_to_trade_helper(
+        //         deps.as_mut(),
+        //         "bad_person",
+        //         0,
+        //         AssetInfo::Cw1155Coin(Cw1155Coin {
+        //             address: "1155".to_string(),
+        //             token_id: "58".to_string(),
+        //             value: Uint128::new(50u128),
+        //         }),
+        //         &[],
+        //     )
+        //     .unwrap_err();
 
-            assert_eq!(err, ContractError::TraderNotCreator {});
-        }
+        //     assert_eq!(err, ContractError::TraderNotCreator {});
+        // }
+       
         #[test]
         fn create_trade_and_withdraw() {
             let mut deps = mock_dependencies();
@@ -1418,10 +1420,9 @@ pub mod tests {
                 deps.as_mut(),
                 "creator",
                 0,
-                AssetInfo::Cw1155Coin(Cw1155Coin {
-                    address: "1155".to_string(),
+                AssetInfo::Cw721Coin(Cw721Coin {
+                    address: "nft".to_string(),
                     token_id: "58".to_string(),
-                    value: Uint128::new(50u128),
                 }),
                 &[],
             )
@@ -1462,9 +1463,9 @@ pub mod tests {
                 info,
                 ExecuteMsg::AddAsset {
                     action: AddAssetAction::ToLastTrade {},
-                    asset: AssetInfo::Cw20Coin(Cw20Coin {
-                        address: "cw20".to_string(),
-                        amount: Uint128::from(100u64),
+                    asset:   AssetInfo::Cw721Coin(Cw721Coin {
+                        address: "nft".to_string(),
+                        token_id: "58".to_string(),
                     }),
                 },
             )
@@ -1486,10 +1487,10 @@ pub mod tests {
             assert_eq!(
                 trade_info.associated_assets,
                 vec![
-                    AssetInfo::Cw20Coin(Cw20Coin {
-                        address: "cw20".to_string(),
-                        amount: Uint128::from(100u128)
-                    }),
+                     AssetInfo::Cw721Coin(Cw721Coin {
+                    address: "nft".to_string(),
+                    token_id: "58".to_string(),
+                }),
                     AssetInfo::Coin(coin(97u128, "uluna")),
                 ]
             );
@@ -1526,30 +1527,30 @@ pub mod tests {
             )
             .unwrap();
 
-            add_asset_to_trade_helper(
-                deps.as_mut(),
-                "creator",
-                0,
-                AssetInfo::Cw1155Coin(Cw1155Coin {
-                    address: "cw1155token".to_string(),
-                    token_id: "58".to_string(),
-                    value: Uint128::new(100u128),
-                }),
-                &[],
-            )
-            .unwrap();
+            // add_asset_to_trade_helper(
+            //     deps.as_mut(),
+            //     "creator",
+            //     0,
+            //     AssetInfo::Cw1155Coin(Cw1155Coin {
+            //         address: "cw1155token".to_string(),
+            //         token_id: "58".to_string(),
+            //         value: Uint128::new(100u128),
+            //     }),
+            //     &[],
+            // )
+            // .unwrap();
 
-            add_asset_to_trade_helper(
-                deps.as_mut(),
-                "creator",
-                0,
-                AssetInfo::Cw20Coin(Cw20Coin {
-                    address: "token".to_string(),
-                    amount: Uint128::new(100u128),
-                }),
-                &[],
-            )
-            .unwrap();
+            // add_asset_to_trade_helper(
+            //     deps.as_mut(),
+            //     "creator",
+            //     0,
+            //     AssetInfo::Cw20Coin(Cw20Coin {
+            //         address: "token".to_string(),
+            //         amount: Uint128::new(100u128),
+            //     }),
+            //     &[],
+            // )
+            // .unwrap();
 
             add_asset_to_trade_helper(
                 deps.as_mut(),
@@ -1573,21 +1574,21 @@ pub mod tests {
                             token_id: "58".to_string(),
                         }),
                     ),
-                    (
-                        2,
-                        AssetInfo::Cw1155Coin(Cw1155Coin {
-                            address: "cw1155token".to_string(),
-                            token_id: "58".to_string(),
-                            value: Uint128::from(58u128),
-                        }),
-                    ),
-                    (
-                        3,
-                        AssetInfo::Cw20Coin(Cw20Coin {
-                            address: "token".to_string(),
-                            amount: Uint128::from(58u64),
-                        }),
-                    ),
+                    // (
+                    //     2,
+                    //     AssetInfo::Cw1155Coin(Cw1155Coin {
+                    //         address: "cw1155token".to_string(),
+                    //         token_id: "58".to_string(),
+                    //         value: Uint128::from(58u128),
+                    //     }),
+                    // ),
+                    // (
+                    //     3,
+                    //     AssetInfo::Cw20Coin(Cw20Coin {
+                    //         address: "token".to_string(),
+                    //         amount: Uint128::from(58u64),
+                    //     }),
+                    // ),
                     (4, AssetInfo::Coin(coin(58, "luna"))),
                 ],
             )
@@ -1606,29 +1607,29 @@ pub mod tests {
                         )
                         .unwrap()
                     ),
-                    SubMsg::new(
-                        into_cosmos_msg(
-                            Cw1155ExecuteMsg::SendFrom {
-                                from: mock_env().contract.address.to_string(),
-                                to: "creator".to_string(),
-                                token_id: "58".to_string(),
-                                value: Uint128::from(58u128),
-                                msg: None
-                            },
-                            "cw1155token"
-                        )
-                        .unwrap()
-                    ),
-                    SubMsg::new(
-                        into_cosmos_msg(
-                            Cw20ExecuteMsg::Transfer {
-                                recipient: "creator".to_string(),
-                                amount: Uint128::from(58u64)
-                            },
-                            "token"
-                        )
-                        .unwrap()
-                    ),
+                    // SubMsg::new(
+                    //     into_cosmos_msg(
+                    //         Cw1155ExecuteMsg::SendFrom {
+                    //             from: mock_env().contract.address.to_string(),
+                    //             to: "creator".to_string(),
+                    //             token_id: "58".to_string(),
+                    //             value: Uint128::from(58u128),
+                    //             msg: None
+                    //         },
+                    //         "cw1155token"
+                    //     )
+                    //     .unwrap()
+                    // ),
+                    // SubMsg::new(
+                    //     into_cosmos_msg(
+                    //         Cw20ExecuteMsg::Transfer {
+                    //             recipient: "creator".to_string(),
+                    //             amount: Uint128::from(58u64)
+                    //         },
+                    //         "token"
+                    //     )
+                    //     .unwrap()
+                    // ),
                     SubMsg::new(BankMsg::Send {
                         to_address: "creator".to_string(),
                         amount: coins(58, "luna"),
@@ -1644,15 +1645,15 @@ pub mod tests {
                         token_id: "58".to_string(),
                         address: "nft-2".to_string()
                     }),
-                    AssetInfo::Cw1155Coin(Cw1155Coin {
-                        value: Uint128::from(42u64),
-                        address: "cw1155token".to_string(),
-                        token_id: "58".to_string()
-                    }),
-                    AssetInfo::Cw20Coin(Cw20Coin {
-                        amount: Uint128::from(42u64),
-                        address: "token".to_string()
-                    }),
+                    // AssetInfo::Cw1155Coin(Cw1155Coin {
+                    //     value: Uint128::from(42u64),
+                    //     address: "cw1155token".to_string(),
+                    //     token_id: "58".to_string()
+                    // }),
+                    // AssetInfo::Cw20Coin(Cw20Coin {
+                    //     amount: Uint128::from(42u64),
+                    //     address: "token".to_string()
+                    // }),
                     AssetInfo::Coin(coin(42, "luna"))
                 ],
             );
@@ -1663,21 +1664,21 @@ pub mod tests {
                 0,
                 None,
                 vec![
-                    (
-                        1,
-                        AssetInfo::Cw1155Coin(Cw1155Coin {
-                            address: "cw1155token".to_string(),
-                            token_id: "58".to_string(),
-                            value: Uint128::from(42u64),
-                        }),
-                    ),
-                    (
-                        2,
-                        AssetInfo::Cw20Coin(Cw20Coin {
-                            address: "token".to_string(),
-                            amount: Uint128::from(42u64),
-                        }),
-                    ),
+                    // (
+                    //     1,
+                    //     AssetInfo::Cw1155Coin(Cw1155Coin {
+                    //         address: "cw1155token".to_string(),
+                    //         token_id: "58".to_string(),
+                    //         value: Uint128::from(42u64),
+                    //     }),
+                    // ),
+                    // (
+                    //     2,
+                    //     AssetInfo::Cw20Coin(Cw20Coin {
+                    //         address: "token".to_string(),
+                    //         amount: Uint128::from(42u64),
+                    //     }),
+                    // ),
                     (3, AssetInfo::Coin(coin(42, "luna"))),
                 ],
             )
@@ -1800,9 +1801,9 @@ pub mod tests {
                 deps.as_mut(),
                 "creator",
                 0,
-                AssetInfo::Cw20Coin(Cw20Coin {
-                    address: "token".to_string(),
-                    amount: Uint128::new(100u128),
+                AssetInfo::Cw721Coin(Cw721Coin {
+                    address: "nft".to_string(),
+                    token_id: "58".to_string(),
                 }),
                 &[],
             )
@@ -1824,9 +1825,9 @@ pub mod tests {
                 None,
                 vec![(
                     2,
-                    AssetInfo::Cw20Coin(Cw20Coin {
-                        address: "token".to_string(),
-                        amount: Uint128::from(101u64),
+                    AssetInfo::Cw721Coin(Cw721Coin {
+                        address: "nft".to_string(),
+                        token_id: "58".to_string(),
                     }),
                 )],
             )
@@ -1848,9 +1849,9 @@ pub mod tests {
                 None,
                 vec![(
                     0,
-                    AssetInfo::Cw20Coin(Cw20Coin {
-                        address: "token".to_string(),
-                        amount: Uint128::from(101u64),
+                    AssetInfo::Cw721Coin(Cw721Coin {
+                        address: "nft".to_string(),
+                        token_id: "58".to_string(),
                     }),
                 )],
             )
@@ -1865,9 +1866,9 @@ pub mod tests {
                 None,
                 vec![(
                     2,
-                    AssetInfo::Cw20Coin(Cw20Coin {
-                        address: "wrong-token".to_string(),
-                        amount: Uint128::from(101u64),
+                    AssetInfo::Cw721Coin(Cw721Coin {
+                        address: "nft".to_string(),
+                        token_id: "58".to_string(),
                     }),
                 )],
             )
@@ -1884,9 +1885,9 @@ pub mod tests {
                 None,
                 vec![(
                     2,
-                    AssetInfo::Cw20Coin(Cw20Coin {
-                        address: "token".to_string(),
-                        amount: Uint128::from(58u64),
+                    AssetInfo::Cw721Coin(Cw721Coin {
+                        address: "nft".to_string(),
+                        token_id: "58".to_string(),
                     }),
                 )],
             )
@@ -2548,30 +2549,30 @@ pub mod tests {
             )
             .unwrap();
 
-            add_asset_to_trade_helper(
-                deps.as_mut(),
-                "creator",
-                0,
-                AssetInfo::Cw1155Coin(Cw1155Coin {
-                    address: "cw1155".to_string(),
-                    token_id: "58".to_string(),
-                    value: Uint128::new(100u128),
-                }),
-                &[],
-            )
-            .unwrap();
+            // add_asset_to_trade_helper(
+            //     deps.as_mut(),
+            //     "creator",
+            //     0,
+            //     AssetInfo::Cw1155Coin(Cw1155Coin {
+            //         address: "cw1155".to_string(),
+            //         token_id: "58".to_string(),
+            //         value: Uint128::new(100u128),
+            //     }),
+            //     &[],
+            // )
+            // .unwrap();
 
-            add_asset_to_trade_helper(
-                deps.as_mut(),
-                "creator",
-                0,
-                AssetInfo::Cw20Coin(Cw20Coin {
-                    address: "token".to_string(),
-                    amount: Uint128::new(100u128),
-                }),
-                &[],
-            )
-            .unwrap();
+            // add_asset_to_trade_helper(
+            //     deps.as_mut(),
+            //     "creator",
+            //     0,
+            //     AssetInfo::Cw20Coin(Cw20Coin {
+            //         address: "token".to_string(),
+            //         amount: Uint128::new(100u128),
+            //     }),
+            //     &[],
+            // )
+            // .unwrap();
 
             add_asset_to_trade_helper(
                 deps.as_mut(),
@@ -2598,18 +2599,18 @@ pub mod tests {
             )
             .unwrap();
 
-            add_asset_to_counter_trade_helper(
-                deps.as_mut(),
-                "other_counterer",
-                0,
-                0,
-                AssetInfo::Cw20Coin(Cw20Coin {
-                    address: "other_counter-token".to_string(),
-                    amount: Uint128::new(100u128),
-                }),
-                &[],
-            )
-            .unwrap();
+            // add_asset_to_counter_trade_helper(
+            //     deps.as_mut(),
+            //     "other_counterer",
+            //     0,
+            //     0,
+            //     AssetInfo::Cw20Coin(Cw20Coin {
+            //         address: "other_counter-token".to_string(),
+            //         amount: Uint128::new(100u128),
+            //     }),
+            //     &[],
+            // )
+            // .unwrap();
 
             add_asset_to_counter_trade_helper(
                 deps.as_mut(),
@@ -2636,18 +2637,18 @@ pub mod tests {
             )
             .unwrap();
 
-            add_asset_to_counter_trade_helper(
-                deps.as_mut(),
-                "counterer",
-                0,
-                1,
-                AssetInfo::Cw20Coin(Cw20Coin {
-                    address: "counter-token".to_string(),
-                    amount: Uint128::new(100u128),
-                }),
-                &[],
-            )
-            .unwrap();
+            // add_asset_to_counter_trade_helper(
+            //     deps.as_mut(),
+            //     "counterer",
+            //     0,
+            //     1,
+            //     AssetInfo::Cw20Coin(Cw20Coin {
+            //         address: "counter-token".to_string(),
+            //         amount: Uint128::new(100u128),
+            //     }),
+            //     &[],
+            // )
+            // .unwrap();
 
             add_asset_to_counter_trade_helper(
                 deps.as_mut(),
@@ -2688,16 +2689,16 @@ pub mod tests {
                         )
                         .unwrap()
                     ),
-                    SubMsg::new(
-                        into_cosmos_msg(
-                            Cw20ExecuteMsg::Transfer {
-                                recipient: "creator".to_string(),
-                                amount: Uint128::from(100u64)
-                            },
-                            "counter-token"
-                        )
-                        .unwrap()
-                    ),
+                    // SubMsg::new(
+                    //     into_cosmos_msg(
+                    //         Cw20ExecuteMsg::Transfer {
+                    //             recipient: "creator".to_string(),
+                    //             amount: Uint128::from(100u64)
+                    //         },
+                    //         "counter-token"
+                    //     )
+                    //     .unwrap()
+                    // ),
                     SubMsg::new(BankMsg::Send {
                         to_address: "creator".to_string(),
                         amount: coins(2, "token"),
@@ -2722,29 +2723,29 @@ pub mod tests {
                         )
                         .unwrap()
                     ),
-                    SubMsg::new(
-                        into_cosmos_msg(
-                            Cw1155ExecuteMsg::SendFrom {
-                                to: "counterer".to_string(),
-                                from: mock_env().contract.address.to_string(),
-                                token_id: "58".to_string(),
-                                value: Uint128::from(100u128),
-                                msg: None
-                            },
-                            "cw1155"
-                        )
-                        .unwrap()
-                    ),
-                    SubMsg::new(
-                        into_cosmos_msg(
-                            Cw20ExecuteMsg::Transfer {
-                                recipient: "counterer".to_string(),
-                                amount: Uint128::from(100u64)
-                            },
-                            "token"
-                        )
-                        .unwrap()
-                    ),
+                    // SubMsg::new(
+                    //     into_cosmos_msg(
+                    //         Cw1155ExecuteMsg::SendFrom {
+                    //             to: "counterer".to_string(),
+                    //             from: mock_env().contract.address.to_string(),
+                    //             token_id: "58".to_string(),
+                    //             value: Uint128::from(100u128),
+                    //             msg: None
+                    //         },
+                    //         "cw1155"
+                    //     )
+                    //     .unwrap()
+                    // ),
+                    // SubMsg::new(
+                    //     into_cosmos_msg(
+                    //         Cw20ExecuteMsg::Transfer {
+                    //             recipient: "counterer".to_string(),
+                    //             amount: Uint128::from(100u64)
+                    //         },
+                    //         "token"
+                    //     )
+                    //     .unwrap()
+                    // ),
                     SubMsg::new(BankMsg::Send {
                         to_address: "counterer".to_string(),
                         amount: coins(9, "other_token"),
@@ -2770,16 +2771,16 @@ pub mod tests {
                         )
                         .unwrap()
                     ),
-                    SubMsg::new(
-                        into_cosmos_msg(
-                            Cw20ExecuteMsg::Transfer {
-                                recipient: "other_counterer".to_string(),
-                                amount: Uint128::from(100u64)
-                            },
-                            "other_counter-token"
-                        )
-                        .unwrap()
-                    ),
+                    // SubMsg::new(
+                    //     into_cosmos_msg(
+                    //         Cw20ExecuteMsg::Transfer {
+                    //             recipient: "other_counterer".to_string(),
+                    //             amount: Uint128::from(100u64)
+                    //         },
+                    //         "other_counter-token"
+                    //     )
+                    //     .unwrap()
+                    // ),
                     SubMsg::new(BankMsg::Send {
                         to_address: "other_counterer".to_string(),
                         amount: coins(5, "lunas"),
@@ -2810,17 +2811,17 @@ pub mod tests {
             )
             .unwrap();
 
-            add_asset_to_trade_helper(
-                deps.as_mut(),
-                "creator",
-                0,
-                AssetInfo::Cw20Coin(Cw20Coin {
-                    address: "token".to_string(),
-                    amount: Uint128::new(100u128),
-                }),
-                &[],
-            )
-            .unwrap();
+            // add_asset_to_trade_helper(
+            //     deps.as_mut(),
+            //     "creator",
+            //     0,
+            //     AssetInfo::Cw20Coin(Cw20Coin {
+            //         address: "token".to_string(),
+            //         amount: Uint128::new(100u128),
+            //     }),
+            //     &[],
+            // )
+            // .unwrap();
 
             add_asset_to_trade_helper(
                 deps.as_mut(),
@@ -2834,18 +2835,18 @@ pub mod tests {
             confirm_trade_helper(deps.as_mut(), "creator", 0).unwrap();
             suggest_counter_trade_helper(deps.as_mut(), "counterer", 0).unwrap();
 
-            add_asset_to_counter_trade_helper(
-                deps.as_mut(),
-                "counterer",
-                0,
-                0,
-                AssetInfo::Cw20Coin(Cw20Coin {
-                    address: "other_counter-token".to_string(),
-                    amount: Uint128::new(100u128),
-                }),
-                &[],
-            )
-            .unwrap();
+            // add_asset_to_counter_trade_helper(
+            //     deps.as_mut(),
+            //     "counterer",
+            //     0,
+            //     0,
+            //     AssetInfo::Cw20Coin(Cw20Coin {
+            //         address: "other_counter-token".to_string(),
+            //         amount: Uint128::new(100u128),
+            //     }),
+            //     &[],
+            // )
+            // .unwrap();
 
             cancel_trade_helper(deps.as_mut(), "creator", 0).unwrap();
             let res = withdraw_cancelled_trade_helper(deps.as_mut(), "creator", 0).unwrap();
@@ -2863,16 +2864,16 @@ pub mod tests {
                         )
                         .unwrap()
                     ),
-                    SubMsg::new(
-                        into_cosmos_msg(
-                            Cw20ExecuteMsg::Transfer {
-                                recipient: "creator".to_string(),
-                                amount: Uint128::from(100u64)
-                            },
-                            "token"
-                        )
-                        .unwrap()
-                    ),
+                    // SubMsg::new(
+                    //     into_cosmos_msg(
+                    //         Cw20ExecuteMsg::Transfer {
+                    //             recipient: "creator".to_string(),
+                    //             amount: Uint128::from(100u64)
+                    //         },
+                    //         "token"
+                    //     )
+                    //     .unwrap()
+                    // ),
                     SubMsg::new(BankMsg::Send {
                         to_address: "creator".to_string(),
                         amount: coins(5, "lunas"),
@@ -2884,19 +2885,19 @@ pub mod tests {
             assert_eq!(err, ContractError::TradeAlreadyWithdrawn {});
 
             let res = withdraw_aborted_counter_helper(deps.as_mut(), "counterer", 0, 0).unwrap();
-            assert_eq!(
-                res.messages,
-                vec![SubMsg::new(
-                    into_cosmos_msg(
-                        Cw20ExecuteMsg::Transfer {
-                            recipient: "counterer".to_string(),
-                            amount: Uint128::from(100u64)
-                        },
-                        "other_counter-token"
-                    )
-                    .unwrap()
-                ),]
-            );
+            // assert_eq!(
+                // res.messages,
+                // vec![SubMsg::new(
+                //     into_cosmos_msg(
+                //         Cw20ExecuteMsg::Transfer {
+                //             recipient: "counterer".to_string(),
+                //             amount: Uint128::from(100u64)
+                //         },
+                //         "other_counter-token"
+                //     )
+                //     .unwrap()
+                // ),]
+            // );
 
             let err =
                 withdraw_aborted_counter_helper(deps.as_mut(), "counterer", 0, 0).unwrap_err();
@@ -2921,17 +2922,17 @@ pub mod tests {
             )
             .unwrap();
 
-            add_asset_to_trade_helper(
-                deps.as_mut(),
-                "creator",
-                0,
-                AssetInfo::Cw20Coin(Cw20Coin {
-                    address: "token".to_string(),
-                    amount: Uint128::new(100u128),
-                }),
-                &[],
-            )
-            .unwrap();
+            // add_asset_to_trade_helper(
+            //     deps.as_mut(),
+            //     "creator",
+            //     0,
+            //     AssetInfo::Cw20Coin(Cw20Coin {
+            //         address: "token".to_string(),
+            //         amount: Uint128::new(100u128),
+            //     }),
+            //     &[],
+            // )
+            // .unwrap();
 
             add_asset_to_trade_helper(
                 deps.as_mut(),
@@ -3251,9 +3252,9 @@ pub mod tests {
                 "counterer",
                 0,
                 0,
-                AssetInfo::Cw20Coin(Cw20Coin {
-                    address: "token".to_string(),
-                    amount: Uint128::new(100u128),
+                AssetInfo::Cw721Coin(Cw721Coin {
+                    address: "nft".to_string(),
+                    token_id: "58".to_string(),
                 }),
                 &[],
             )
@@ -3278,9 +3279,9 @@ pub mod tests {
                 "counterer",
                 0,
                 1,
-                AssetInfo::Cw20Coin(Cw20Coin {
-                    address: "token".to_string(),
-                    amount: Uint128::new(100u128),
+                AssetInfo::Cw721Coin(Cw721Coin {
+                    address: "nft".to_string(),
+                    token_id: "58".to_string(),
                 }),
                 &[],
             )
@@ -3297,9 +3298,9 @@ pub mod tests {
             assert_eq!(counter_trade_info.state, TradeState::Created);
             assert_eq!(
                 counter_trade_info.associated_assets,
-                vec![AssetInfo::Cw20Coin(Cw20Coin {
-                    address: "token".to_string(),
-                    amount: Uint128::from(100u64)
+                vec![  AssetInfo::Cw721Coin(Cw721Coin {
+                    address: "nft".to_string(),
+                    token_id: "58".to_string(),
                 }),]
             );
 
@@ -3309,9 +3310,9 @@ pub mod tests {
                 "bad_person",
                 0,
                 0,
-                AssetInfo::Cw20Coin(Cw20Coin {
-                    address: "token".to_string(),
-                    amount: Uint128::new(100u128),
+                AssetInfo::Cw721Coin(Cw721Coin {
+                    address: "nft".to_string(),
+                    token_id: "58".to_string(),
                 }),
                 &[],
             )
@@ -3409,9 +3410,9 @@ pub mod tests {
                 info,
                 ExecuteMsg::AddAsset {
                     action: AddAssetAction::ToLastCounterTrade { trade_id: 0 },
-                    asset: AssetInfo::Cw20Coin(Cw20Coin {
-                        address: "cw20".to_string(),
-                        amount: Uint128::from(100u64),
+                    asset:   AssetInfo::Cw721Coin(Cw721Coin {
+                        address: "nft".to_string(),
+                        token_id: "58".to_string(),
                     }),
                 },
             )
@@ -3449,9 +3450,9 @@ pub mod tests {
             assert_eq!(
                 trade_info.associated_assets,
                 vec![
-                    AssetInfo::Cw20Coin(Cw20Coin {
-                        address: "cw20".to_string(),
-                        amount: Uint128::from(100u128)
+                    AssetInfo::Cw721Coin(Cw721Coin {
+                        address: "nft".to_string(),
+                        token_id: "58".to_string(),
                     }),
                     AssetInfo::Coin(coin(97, "uluna"))
                 ]
@@ -3499,9 +3500,9 @@ pub mod tests {
                 "counterer",
                 0,
                 0,
-                AssetInfo::Cw20Coin(Cw20Coin {
-                    address: "token".to_string(),
-                    amount: Uint128::new(100u128),
+                AssetInfo::Cw721Coin(Cw721Coin {
+                    address: "nft".to_string(),
+                    token_id: "58".to_string(),
                 }),
                 &[],
             )
@@ -3532,9 +3533,9 @@ pub mod tests {
                     ),
                     (
                         2,
-                        AssetInfo::Cw20Coin(Cw20Coin {
-                            address: "token".to_string(),
-                            amount: Uint128::from(58u64),
+                        AssetInfo::Cw721Coin(Cw721Coin {
+                            address: "nft".to_string(),
+                            token_id: "58".to_string(),
                         }),
                     ),
                     (3, AssetInfo::Coin(coin(58, "luna"))),
@@ -3556,16 +3557,16 @@ pub mod tests {
                         )
                         .unwrap()
                     ),
-                    SubMsg::new(
-                        into_cosmos_msg(
-                            Cw20ExecuteMsg::Transfer {
-                                recipient: "counterer".to_string(),
-                                amount: Uint128::from(58u64)
-                            },
-                            "token"
-                        )
-                        .unwrap()
-                    ),
+                    // SubMsg::new(
+                    //     into_cosmos_msg(
+                    //         Cw20ExecuteMsg::Transfer {
+                    //             recipient: "counterer".to_string(),
+                    //             amount: Uint128::from(58u64)
+                    //         },
+                    //         "token"
+                    //     )
+                    //     .unwrap()
+                    // ),
                     SubMsg::new(BankMsg::Send {
                         to_address: "counterer".to_string(),
                         amount: coins(58, "luna"),
@@ -3581,9 +3582,9 @@ pub mod tests {
                         token_id: "58".to_string(),
                         address: "nft-2".to_string()
                     }),
-                    AssetInfo::Cw20Coin(Cw20Coin {
-                        amount: Uint128::from(42u64),
-                        address: "token".to_string()
+                    AssetInfo::Cw721Coin(Cw721Coin {
+                        address: "nft".to_string(),
+                        token_id: "58".to_string(),
                     }),
                     AssetInfo::Coin(coin(42, "luna"))
                 ],
@@ -3597,9 +3598,9 @@ pub mod tests {
                 vec![
                     (
                         1,
-                        AssetInfo::Cw20Coin(Cw20Coin {
-                            address: "token".to_string(),
-                            amount: Uint128::from(42u64),
+                        AssetInfo::Cw721Coin(Cw721Coin {
+                            address: "nft".to_string(),
+                            token_id: "58".to_string(),
                         }),
                     ),
                     (2, AssetInfo::Coin(coin(42, "luna"))),
@@ -3729,9 +3730,9 @@ pub mod tests {
                 "counterer",
                 0,
                 0,
-                AssetInfo::Cw20Coin(Cw20Coin {
-                    address: "token".to_string(),
-                    amount: Uint128::new(100u128),
+                AssetInfo::Cw721Coin(Cw721Coin {
+                    address: "nft".to_string(),
+                    token_id: "58".to_string(),
                 }),
                 &[],
             )
@@ -3754,9 +3755,9 @@ pub mod tests {
                 Some(0),
                 vec![(
                     2,
-                    AssetInfo::Cw20Coin(Cw20Coin {
-                        address: "token".to_string(),
-                        amount: Uint128::from(101u64),
+                    AssetInfo::Cw721Coin(Cw721Coin {
+                        address: "nft".to_string(),
+                        token_id: "58".to_string(),
                     }),
                 )],
             )
@@ -3778,9 +3779,9 @@ pub mod tests {
                 Some(0),
                 vec![(
                     0,
-                    AssetInfo::Cw20Coin(Cw20Coin {
-                        address: "token".to_string(),
-                        amount: Uint128::from(101u64),
+                    AssetInfo::Cw721Coin(Cw721Coin {
+                        address: "nft".to_string(),
+                        token_id: "58".to_string(),
                     }),
                 )],
             )
@@ -3795,9 +3796,9 @@ pub mod tests {
                 Some(0),
                 vec![(
                     2,
-                    AssetInfo::Cw20Coin(Cw20Coin {
-                        address: "wrong-token".to_string(),
-                        amount: Uint128::from(101u64),
+                    AssetInfo::Cw721Coin(Cw721Coin {
+                        address: "nft".to_string(),
+                        token_id: "58".to_string(),
                     }),
                 )],
             )
@@ -3814,9 +3815,9 @@ pub mod tests {
                 Some(0),
                 vec![(
                     2,
-                    AssetInfo::Cw20Coin(Cw20Coin {
-                        address: "token".to_string(),
-                        amount: Uint128::from(58u64),
+                    AssetInfo::Cw721Coin(Cw721Coin {
+                        address: "nft".to_string(),
+                        token_id: "58".to_string(),
                     }),
                 )],
             )

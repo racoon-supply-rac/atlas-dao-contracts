@@ -1,13 +1,10 @@
-use cosmwasm_std::Empty;
 use cw721::{Cw721QueryMsg, OwnerOfResponse};
-
-
 use std::marker::PhantomData;
 
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Coin, ContractResult,
-    OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError, SystemResult, WasmQuery,
+    from_json, to_json_binary, Coin, ContractResult, Empty, OwnedDeps, Querier, QuerierResult,
+    QueryRequest, SystemError, SystemResult, WasmQuery,
 };
 use std::collections::HashMap;
 
@@ -29,7 +26,7 @@ pub fn mock_dependencies(
 
 pub struct WasmMockQuerier {
     base: MockQuerier<Empty>,
-    owner_of_querier: OwnerOfQuerier
+    owner_of_querier: OwnerOfQuerier,
 }
 
 #[derive(Clone, Default)]
@@ -46,9 +43,7 @@ impl OwnerOfQuerier {
     }
 }
 
-pub(crate) fn owner_of_to_map(
-    owner_of: &[(&String, &String)],
-) -> HashMap<String, String> {
+pub(crate) fn owner_of_to_map(owner_of: &[(&String, &String)]) -> HashMap<String, String> {
     let mut owner_of_map: HashMap<String, String> = HashMap::new();
     for (token_id, owner) in owner_of.iter() {
         owner_of_map.insert((*token_id).clone(), owner.to_string());
@@ -56,11 +51,10 @@ pub(crate) fn owner_of_to_map(
     owner_of_map
 }
 
-
 impl Querier for WasmMockQuerier {
     fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
         // MockQuerier doesn't support Custom, so we ignore it completely here
-        let request: QueryRequest<Empty> = match from_slice(bin_request) {
+        let request: QueryRequest<Empty> = match from_json(bin_request) {
             Ok(v) => v,
             Err(e) => {
                 return SystemResult::Err(SystemError::InvalidRequest {
@@ -77,21 +71,28 @@ impl WasmMockQuerier {
     pub fn handle_query(&self, request: &QueryRequest<Empty>) -> QuerierResult {
         match &request {
             QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => {
-                match from_binary(msg).unwrap() {
+                match from_json(msg).unwrap() {
                     Cw721QueryMsg::OwnerOf {
                         token_id,
                         include_expired: _,
                     } => {
-                        match self.owner_of_querier.owner_of.get(&format!("{} - {}",contract_addr, token_id)) {
-                            Some(v) => SystemResult::Ok(ContractResult::from(to_binary(
-                                &OwnerOfResponse { owner: v.clone(), approvals: vec![] },
+                        match self
+                            .owner_of_querier
+                            .owner_of
+                            .get(&format!("{} - {}", contract_addr, token_id))
+                        {
+                            Some(v) => SystemResult::Ok(ContractResult::from(to_json_binary(
+                                &OwnerOfResponse {
+                                    owner: v.clone(),
+                                    approvals: vec![],
+                                },
                             ))),
                             None => SystemResult::Err(SystemError::InvalidRequest {
                                 error: "No owner exists".to_string(),
                                 request: msg.as_slice().into(),
                             }),
                         }
-                    },
+                    }
                     _ => SystemResult::Err(SystemError::InvalidRequest {
                         error: "UnImplemented in tests".to_string(),
                         request: msg.as_slice().into(),
@@ -114,5 +115,4 @@ impl WasmMockQuerier {
     pub fn with_owner_of(&mut self, owner_of: &[(&String, &String)]) {
         self.owner_of_querier = OwnerOfQuerier::new(owner_of);
     }
-
 }

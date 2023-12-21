@@ -1,9 +1,8 @@
 
+use cosmwasm_std::{StdResult, to_json_binary};
 #[cfg(not(feature = "library"))]
-use anyhow::{anyhow, Result};
-use cosmwasm_std::{entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response};
+use cosmwasm_std::{entry_point, Binary, Deps, DepsMut, Env, MessageInfo, Response};
 
-use serde::Serialize;
 use utils::state::OwnerStruct;
 
 use nft_loans_export::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
@@ -11,6 +10,7 @@ use nft_loans_export::state::ContractInfo;
 
 use crate::admin::{set_fee_distributor, set_fee_rate, set_owner};
 use crate::admin::claim_ownership;
+use crate::error::ContractError;
 use crate::execute::accept_loan;
 use crate::execute::accept_offer;
 use crate::execute::cancel_offer;
@@ -35,7 +35,7 @@ pub fn instantiate(
     _env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
-) -> Result<Response> {
+) -> Result<Response, ContractError> {
     // Verify the contract name and the sent fee rates
     msg.validate()?;
     // store token info
@@ -56,7 +56,7 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> Result<Response> {
+pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::DepositCollaterals {
             tokens,
@@ -122,38 +122,35 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> R
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response> {
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
     // No state migrations performed, just returned a Response
     Ok(Response::default())
 }
 
-fn to_anyhow_binary<T: Serialize>(message: &T) -> Result<Binary> {
-    to_binary(message).map_err(|err| anyhow!(err))
-}
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::ContractInfo {} => to_anyhow_binary(&query_contract_info(deps)?),
+        QueryMsg::ContractInfo {} => to_json_binary(&query_contract_info(deps)?),
         QueryMsg::BorrowerInfo { borrower } => {
-            to_anyhow_binary(&query_borrower_info(deps, borrower)?)
+            to_json_binary(&query_borrower_info(deps, borrower)?)
         }
         QueryMsg::CollateralInfo { borrower, loan_id } => {
-            to_anyhow_binary(&query_collateral_info(deps, borrower, loan_id)?)
+            to_json_binary(&query_collateral_info(deps, borrower, loan_id)?)
         }
 
         QueryMsg::Collaterals {
             borrower,
             start_after,
             limit,
-        } => to_anyhow_binary(&query_collaterals(deps, borrower, start_after, limit)?),
+        } => to_json_binary(&query_collaterals(deps, borrower, start_after, limit)?),
 
         QueryMsg::AllCollaterals { start_after, limit } => {
-            to_anyhow_binary(&query_all_collaterals(deps, start_after, limit)?)
+            to_json_binary(&query_all_collaterals(deps, start_after, limit)?)
         }
 
         QueryMsg::OfferInfo { global_offer_id } => {
-            to_anyhow_binary(&query_offer_info(deps, global_offer_id)?)
+            to_json_binary(&query_offer_info(deps, global_offer_id)?)
         }
 
         QueryMsg::Offers {
@@ -161,12 +158,12 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<Binary> {
             loan_id,
             start_after,
             limit,
-        } => to_anyhow_binary(&query_offers(deps, borrower, loan_id, start_after, limit)?),
+        } => to_json_binary(&query_offers(deps, borrower, loan_id, start_after, limit)?),
 
         QueryMsg::LenderOffers {
             lender,
             start_after,
             limit,
-        } => to_anyhow_binary(&query_lender_offers(deps, lender, start_after, limit)?),
+        } => to_json_binary(&query_lender_offers(deps, lender, start_after, limit)?),
     }
 }

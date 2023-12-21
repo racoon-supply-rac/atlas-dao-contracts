@@ -1,13 +1,13 @@
 use cosmwasm_std::{
     to_binary, Addr, Api, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError,
-    StdResult, Storage, Uint128,
+    StdResult, Storage, Uint128, to_json_binary,
 };
 
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
-use cw1155::Cw1155ExecuteMsg;
-use cw20::Cw20ExecuteMsg;
+// use cw1155::Cw1155ExecuteMsg;
+// use cw20::Cw20ExecuteMsg;
 use cw721::Cw721ExecuteMsg;
 
 use p2p_trading_export::msg::into_cosmos_msg;
@@ -18,7 +18,7 @@ use p2p_trading_export::state::{
 use crate::error::ContractError;
 use crate::messages::set_comment;
 use crate::state::{
-    add_cw1155_coin, add_cw20_coin, add_cw721_coin, add_funds, is_trader, load_counter_trade,
+     add_cw721_coin, add_funds, is_trader, load_counter_trade,
     CONTRACT_INFO, COUNTER_TRADE_INFO, LAST_USER_TRADE, TRADE_INFO,
 };
 
@@ -156,19 +156,19 @@ pub fn _create_receive_asset_messages(
             .add_attribute("asset_type", "fund")
             .add_attribute("denom", coin.denom)
             .add_attribute("amount", coin.amount),
-        AssetInfo::Cw20Coin(token) => {
-            let message = Cw20ExecuteMsg::TransferFrom {
-                owner: info.sender.to_string(),
-                recipient: env.contract.address.into(),
-                amount: token.amount,
-            };
-            Response::new()
-                .add_message(into_cosmos_msg(message, token.address.clone())?)
-                .add_attribute("action", "add_asset")
-                .add_attribute("asset_type", "token")
-                .add_attribute("token", token.address)
-                .add_attribute("amount", token.amount)
-        }
+        // AssetInfo::Cw20Coin(token) => {
+        //     let message = Cw20ExecuteMsg::TransferFrom {
+        //         owner: info.sender.to_string(),
+        //         recipient: env.contract.address.into(),
+        //         amount: token.amount,
+        //     };
+        //     Response::new()
+        //         .add_message(into_cosmos_msg(message, token.address.clone())?)
+        //         .add_attribute("action", "add_asset")
+        //         .add_attribute("asset_type", "token")
+        //         .add_attribute("token", token.address)
+        //         .add_attribute("amount", token.amount)
+        // }
         AssetInfo::Cw721Coin(token) => {
             let message = Cw721ExecuteMsg::TransferNft {
                 recipient: env.contract.address.into(),
@@ -182,23 +182,23 @@ pub fn _create_receive_asset_messages(
                 .add_attribute("nft", token.address)
                 .add_attribute("token_id", token.token_id)
         }
-        AssetInfo::Cw1155Coin(token) => {
-            let message = Cw1155ExecuteMsg::SendFrom {
-                from: info.sender.to_string(),
-                to: env.contract.address.into(),
-                token_id: token.token_id.clone(),
-                value: token.value,
-                msg: None,
-            };
+        // AssetInfo::Cw1155Coin(token) => {
+        //     let message = Cw1155ExecuteMsg::SendFrom {
+        //         from: info.sender.to_string(),
+        //         to: env.contract.address.into(),
+        //         token_id: token.token_id.clone(),
+        //         value: token.value,
+        //         msg: None,
+        //     };
 
-            Response::new()
-                .add_message(into_cosmos_msg(message, token.address.clone())?)
-                .add_attribute("action", "add_asset")
-                .add_attribute("asset_type", "cw1155")
-                .add_attribute("token", token.address)
-                .add_attribute("token_id", token.token_id)
-                .add_attribute("amount", token.value)
-        }
+        //     Response::new()
+        //         .add_message(into_cosmos_msg(message, token.address.clone())?)
+        //         .add_attribute("action", "add_asset")
+        //         .add_attribute("asset_type", "cw1155")
+        //         .add_attribute("token", token.address)
+        //         .add_attribute("token_id", token.token_id)
+        //         .add_attribute("amount", token.value)
+        // }
     })
 }
 
@@ -218,21 +218,21 @@ pub fn add_asset_to_trade(
         AssetInfo::Coin(coin) => {
             TRADE_INFO.update(deps.storage, trade_id, add_funds(coin, info.funds.clone()))
         }
-        AssetInfo::Cw20Coin(token) => TRADE_INFO.update(
-            deps.storage,
-            trade_id,
-            add_cw20_coin(token.address.clone(), token.amount),
-        ),
+        // AssetInfo::Cw20Coin(token) => TRADE_INFO.update(
+        //     deps.storage,
+        //     trade_id,
+        //     add_cw20_coin(token.address.clone(), token.amount),
+        // ),
         AssetInfo::Cw721Coin(token) => TRADE_INFO.update(
             deps.storage,
             trade_id,
             add_cw721_coin(token.address.clone(), token.token_id),
         ),
-        AssetInfo::Cw1155Coin(token) => TRADE_INFO.update(
-            deps.storage,
-            trade_id,
-            add_cw1155_coin(token.address.clone(), token.token_id.clone(), token.value),
-        ),
+        // AssetInfo::Cw1155Coin(token) => TRADE_INFO.update(
+        //     deps.storage,
+        //     trade_id,
+        //     add_cw1155_coin(token.address.clone(), token.token_id.clone(), token.value),
+        // ),
     }?;
 
     // Now we need to transfer the token
@@ -276,17 +276,17 @@ pub fn withdraw_trade_assets_while_creating(
                     trade_info.additional_info.trade_preview = None;
                 }
             }
-            AssetInfo::Cw1155Coin(preview_coin) => {
-                if assets.iter().any(|r| match r.1.clone() {
-                    AssetInfo::Cw1155Coin(coin) => {
-                        coin.address == preview_coin.address
-                            && coin.token_id == preview_coin.token_id
-                    }
-                    _ => false,
-                }) {
-                    trade_info.additional_info.trade_preview = None;
-                }
-            }
+            // AssetInfo::Cw1155Coin(preview_coin) => {
+            //     if assets.iter().any(|r| match r.1.clone() {
+            //         AssetInfo::Cw1155Coin(coin) => {
+            //             coin.address == preview_coin.address
+            //                 && coin.token_id == preview_coin.token_id
+            //         }
+            //         _ => false,
+            //     }) {
+            //         trade_info.additional_info.trade_preview = None;
+            //     }
+            // }
             _ => {}
         }
     }
@@ -336,24 +336,24 @@ pub fn _are_assets_in_trade(
                 }
             }
 
-            AssetInfo::Cw20Coin(token_info) => {
-                // We check the token is the one we want
-                if let AssetInfo::Cw20Coin(token) = asset {
-                    // We verify the sent information matches the saved token
-                    if token_info.address != token.address {
-                        return Err(ContractError::AssetNotFound { position });
-                    }
-                    if token_info.amount < token.amount {
-                        return Err(ContractError::TooMuchWithdrawn {
-                            address: token_info.address,
-                            wanted: token.amount.u128(),
-                            available: token_info.amount.u128(),
-                        });
-                    }
-                } else {
-                    return Err(ContractError::AssetNotFound { position });
-                }
-            }
+            // AssetInfo::Cw20Coin(token_info) => {
+            //     // We check the token is the one we want
+            //     if let AssetInfo::Cw20Coin(token) = asset {
+            //         // We verify the sent information matches the saved token
+            //         if token_info.address != token.address {
+            //             return Err(ContractError::AssetNotFound { position });
+            //         }
+            //         if token_info.amount < token.amount {
+            //             return Err(ContractError::TooMuchWithdrawn {
+            //                 address: token_info.address,
+            //                 wanted: token.amount.u128(),
+            //                 available: token_info.amount.u128(),
+            //             });
+            //         }
+            //     } else {
+            //         return Err(ContractError::AssetNotFound { position });
+            //     }
+            // }
             AssetInfo::Cw721Coin(nft_info) => {
                 // We check the token is the one we want
                 if let AssetInfo::Cw721Coin(nft) = asset {
@@ -368,27 +368,27 @@ pub fn _are_assets_in_trade(
                     return Err(ContractError::AssetNotFound { position });
                 }
             }
-            AssetInfo::Cw1155Coin(cw1155_info) => {
-                // We check the token is the one we want
-                if let AssetInfo::Cw1155Coin(cw1155) = asset {
-                    // We verify the sent information matches the saved nft
-                    if cw1155_info.address != cw1155.address {
-                        return Err(ContractError::AssetNotFound { position });
-                    }
-                    if cw1155_info.token_id != cw1155.token_id {
-                        return Err(ContractError::AssetNotFound { position });
-                    }
-                    if cw1155_info.value < cw1155.value {
-                        return Err(ContractError::TooMuchWithdrawn {
-                            address: cw1155_info.address.to_string(),
-                            wanted: cw1155.value.u128(),
-                            available: cw1155_info.value.u128(),
-                        });
-                    }
-                } else {
-                    return Err(ContractError::AssetNotFound { position });
-                }
-            }
+            // AssetInfo::Cw1155Coin(cw1155_info) => {
+            //     // We check the token is the one we want
+            //     if let AssetInfo::Cw1155Coin(cw1155) = asset {
+            //         // We verify the sent information matches the saved nft
+            //         if cw1155_info.address != cw1155.address {
+            //             return Err(ContractError::AssetNotFound { position });
+            //         }
+            //         if cw1155_info.token_id != cw1155.token_id {
+            //             return Err(ContractError::AssetNotFound { position });
+            //         }
+            //         if cw1155_info.value < cw1155.value {
+            //             return Err(ContractError::TooMuchWithdrawn {
+            //                 address: cw1155_info.address.to_string(),
+            //                 wanted: cw1155.value.u128(),
+            //                 available: cw1155_info.value.u128(),
+            //             });
+            //         }
+            //     } else {
+            //         return Err(ContractError::AssetNotFound { position });
+            //     }
+            // }
         }
     }
 
@@ -414,39 +414,39 @@ pub fn _try_withdraw_assets_unsafe(
                     trade_info.associated_assets[position] = AssetInfo::Coin(fund_info);
                 }
             }
-            AssetInfo::Cw20Coin(mut token_info) => {
-                if let AssetInfo::Cw20Coin(token) = asset {
-                    token_info.amount = token_info
-                        .amount
-                        .checked_sub(token.amount)
-                        .map_err(ContractError::Overflow)?;
-                    trade_info.associated_assets[position] = AssetInfo::Cw20Coin(token_info);
-                }
-            }
+            // AssetInfo::Cw20Coin(mut token_info) => {
+            //     if let AssetInfo::Cw20Coin(token) = asset {
+            //         token_info.amount = token_info
+            //             .amount
+            //             .checked_sub(token.amount)
+            //             .map_err(ContractError::Overflow)?;
+            //         trade_info.associated_assets[position] = AssetInfo::Cw20Coin(token_info);
+            //     }
+            // }
             AssetInfo::Cw721Coin(mut nft_info) => {
                 if let AssetInfo::Cw721Coin(_) = asset {
                     nft_info.address = "".to_string();
                     trade_info.associated_assets[position] = AssetInfo::Cw721Coin(nft_info);
                 }
             }
-            AssetInfo::Cw1155Coin(mut cw1155_info) => {
-                if let AssetInfo::Cw1155Coin(cw1155) = asset {
-                    cw1155_info.value = cw1155_info
-                        .value
-                        .checked_sub(cw1155.value)
-                        .map_err(ContractError::Overflow)?;
-                    trade_info.associated_assets[position] = AssetInfo::Cw1155Coin(cw1155_info);
-                }
-            }
+            // AssetInfo::Cw1155Coin(mut cw1155_info) => {
+            //     if let AssetInfo::Cw1155Coin(cw1155) = asset {
+            //         cw1155_info.value = cw1155_info
+            //             .value
+            //             .checked_sub(cw1155.value)
+            //             .map_err(ContractError::Overflow)?;
+            //         trade_info.associated_assets[position] = AssetInfo::Cw1155Coin(cw1155_info);
+            //     }
+            // }
         }
     }
 
     // Then we remove empty assets from the trade
     trade_info.associated_assets.retain(|asset| match asset {
         AssetInfo::Coin(fund) => fund.amount != Uint128::zero(),
-        AssetInfo::Cw20Coin(token) => token.amount != Uint128::zero(),
+        // AssetInfo::Cw20Coin(token) => token.amount != Uint128::zero(),
         AssetInfo::Cw721Coin(nft) => !nft.address.is_empty(),
-        AssetInfo::Cw1155Coin(cw1155) => cw1155.value != Uint128::zero(),
+        // AssetInfo::Cw1155Coin(cw1155) => cw1155.value != Uint128::zero(),
     });
 
     Ok(())
@@ -477,17 +477,17 @@ pub fn _create_withdraw_messages_unsafe(
                     .add_attribute("denom", fund.denom.clone())
                     .add_attribute("amount", fund.amount);
             }
-            AssetInfo::Cw20Coin(token) => {
-                let message = Cw20ExecuteMsg::Transfer {
-                    recipient: recipient.to_string(),
-                    amount: token.amount,
-                };
-                res = res
-                    .add_message(into_cosmos_msg(message, token.address.clone())?)
-                    .add_attribute("asset_type", "token")
-                    .add_attribute("token", token.address.clone())
-                    .add_attribute("amount", token.amount);
-            }
+            // AssetInfo::Cw20Coin(token) => {
+            //     let message = Cw20ExecuteMsg::Transfer {
+            //         recipient: recipient.to_string(),
+            //         amount: token.amount,
+            //     };
+            //     res = res
+            //         .add_message(into_cosmos_msg(message, token.address.clone())?)
+            //         .add_attribute("asset_type", "token")
+            //         .add_attribute("token", token.address.clone())
+            //         .add_attribute("amount", token.amount);
+            // }
             AssetInfo::Cw721Coin(nft) => {
                 let message = Cw721ExecuteMsg::TransferNft {
                     recipient: recipient.to_string(),
@@ -499,21 +499,21 @@ pub fn _create_withdraw_messages_unsafe(
                     .add_attribute("nft", nft.address.clone())
                     .add_attribute("token_id", nft.token_id.clone());
             }
-            AssetInfo::Cw1155Coin(cw1155) => {
-                let message = Cw1155ExecuteMsg::SendFrom {
-                    from: contract_address.to_string(),
-                    to: recipient.to_string(),
-                    token_id: cw1155.token_id.clone(),
-                    value: cw1155.value,
-                    msg: None,
-                };
-                res = res
-                    .add_message(into_cosmos_msg(message, cw1155.address.clone())?)
-                    .add_attribute("asset_type", "Cw1155")
-                    .add_attribute("token", cw1155.address.clone())
-                    .add_attribute("token_id", cw1155.token_id.clone())
-                    .add_attribute("amount", cw1155.value);
-            }
+            // AssetInfo::Cw1155Coin(cw1155) => {
+            //     let message = Cw1155ExecuteMsg::SendFrom {
+            //         from: contract_address.to_string(),
+            //         to: recipient.to_string(),
+            //         token_id: cw1155.token_id.clone(),
+            //         value: cw1155.value,
+            //         msg: None,
+            //     };
+            //     res = res
+            //         .add_message(into_cosmos_msg(message, cw1155.address.clone())?)
+            //         .add_attribute("asset_type", "Cw1155")
+            //         .add_attribute("token", cw1155.address.clone())
+            //         .add_attribute("token_id", cw1155.token_id.clone())
+            //         .add_attribute("amount", cw1155.value);
+            // }
         }
     }
 
@@ -722,7 +722,7 @@ pub fn add_tokens_wanted(
     // We validate the tokens_wanted structure
     for token in tokens_wanted.clone() {
         match token {
-            AssetInfo::Coin(_) | AssetInfo::Cw20Coin(_) => Ok(()),
+            AssetInfo::Coin(_) | AssetInfo::Coin(_) => Ok(()),
             _ => Err(ContractError::WrongTokenType {}),
         }?
     }
@@ -796,7 +796,7 @@ pub fn set_tokens_wanted(
     // We validate the tokens_wanted structure
     for token in tokens_wanted.clone() {
         match token {
-            AssetInfo::Coin(_) | AssetInfo::Cw20Coin(_) => Ok(()),
+            AssetInfo::Coin(_) | AssetInfo::Coin(_) => Ok(()),
             _ => Err(ContractError::WrongTokenType {}),
         }?
     }
@@ -805,7 +805,7 @@ pub fn set_tokens_wanted(
     trade_info.additional_info.tokens_wanted = HashSet::from_iter(
         tokens_wanted
             .iter()
-            .map(to_binary)
+            .map(to_json_binary)
             .collect::<Result<Vec<Binary>, StdError>>()?,
     );
 

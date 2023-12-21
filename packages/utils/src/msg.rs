@@ -1,4 +1,3 @@
-use anyhow::Result;
 use cosmwasm_std::{to_json_binary, Binary, Coin, CosmosMsg, StdResult, WasmMsg};
 use serde::Serialize;
 
@@ -18,7 +17,7 @@ pub fn into_cosmos_msg<M: Serialize, T: Into<String>>(
     message: M,
     contract_addr: T,
     funds: Option<Vec<Coin>>,
-) -> Result<CosmosMsg> {
+) -> StdResult<CosmosMsg> {
     let msg = into_binary(message)?;
     let execute = WasmMsg::Execute {
         contract_addr: contract_addr.into(),
