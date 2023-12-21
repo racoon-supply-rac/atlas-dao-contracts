@@ -411,7 +411,7 @@ pub mod tests {
 
     use cw721::Cw721ExecuteMsg;
     use p2p_trading_export::msg::into_cosmos_msg;
-    use p2p_trading_export::state::{AssetInfo, Cw1155Coin, Cw20Coin, Cw721Coin};
+    use p2p_trading_export::state::{AssetInfo, Cw721Coin};
 
     fn init_helper(deps: DepsMut) {
         let instantiate_msg = InstantiateMsg {
@@ -1527,30 +1527,29 @@ pub mod tests {
             )
             .unwrap();
 
-            // add_asset_to_trade_helper(
-            //     deps.as_mut(),
-            //     "creator",
-            //     0,
-            //     AssetInfo::Cw1155Coin(Cw1155Coin {
-            //         address: "cw1155token".to_string(),
-            //         token_id: "58".to_string(),
-            //         value: Uint128::new(100u128),
-            //     }),
-            //     &[],
-            // )
-            // .unwrap();
+            add_asset_to_trade_helper(
+                deps.as_mut(),
+                "creator",
+                0,
+                AssetInfo::Cw721Coin(Cw721Coin {
+                    address: "nft-2".to_string(),
+                    token_id: "59".to_string(),
+                }),
+                &[],
+            )
+            .unwrap();
 
-            // add_asset_to_trade_helper(
-            //     deps.as_mut(),
-            //     "creator",
-            //     0,
-            //     AssetInfo::Cw20Coin(Cw20Coin {
-            //         address: "token".to_string(),
-            //         amount: Uint128::new(100u128),
-            //     }),
-            //     &[],
-            // )
-            // .unwrap();
+            add_asset_to_trade_helper(
+                deps.as_mut(),
+                "creator",
+                0,
+                AssetInfo::Cw721Coin(Cw721Coin {
+                    address: "nft-2".to_string(),
+                    token_id: "60".to_string(),
+                }),
+                &[],
+            )
+            .unwrap();
 
             add_asset_to_trade_helper(
                 deps.as_mut(),
@@ -1574,21 +1573,20 @@ pub mod tests {
                             token_id: "58".to_string(),
                         }),
                     ),
-                    // (
-                    //     2,
-                    //     AssetInfo::Cw1155Coin(Cw1155Coin {
-                    //         address: "cw1155token".to_string(),
-                    //         token_id: "58".to_string(),
-                    //         value: Uint128::from(58u128),
-                    //     }),
-                    // ),
-                    // (
-                    //     3,
-                    //     AssetInfo::Cw20Coin(Cw20Coin {
-                    //         address: "token".to_string(),
-                    //         amount: Uint128::from(58u64),
-                    //     }),
-                    // ),
+                    (
+                        2,
+                        AssetInfo::Cw721Coin(Cw721Coin {
+                            address: "nft".to_string(),
+                            token_id: "59".to_string(),
+                        }),
+                    ),
+                    (
+                        3,
+                        AssetInfo::Cw721Coin(Cw721Coin {
+                            address: "nft".to_string(),
+                            token_id: "60".to_string(),
+                        }),
+                    ),
                     (4, AssetInfo::Coin(coin(58, "luna"))),
                 ],
             )
@@ -1607,29 +1605,26 @@ pub mod tests {
                         )
                         .unwrap()
                     ),
-                    // SubMsg::new(
-                    //     into_cosmos_msg(
-                    //         Cw1155ExecuteMsg::SendFrom {
-                    //             from: mock_env().contract.address.to_string(),
-                    //             to: "creator".to_string(),
-                    //             token_id: "58".to_string(),
-                    //             value: Uint128::from(58u128),
-                    //             msg: None
-                    //         },
-                    //         "cw1155token"
-                    //     )
-                    //     .unwrap()
-                    // ),
-                    // SubMsg::new(
-                    //     into_cosmos_msg(
-                    //         Cw20ExecuteMsg::Transfer {
-                    //             recipient: "creator".to_string(),
-                    //             amount: Uint128::from(58u64)
-                    //         },
-                    //         "token"
-                    //     )
-                    //     .unwrap()
-                    // ),
+                    SubMsg::new(
+                        into_cosmos_msg(
+                            Cw721ExecuteMsg::TransferNft {
+                                recipient: "creator".to_string(),
+                                token_id: "59".to_string()
+                            },
+                            "nft"
+                        )
+                        .unwrap()
+                    ),
+                    SubMsg::new(
+                        into_cosmos_msg(
+                            Cw721ExecuteMsg::TransferNft {
+                                recipient: "creator".to_string(),
+                                token_id: "60".to_string()
+                            },
+                            "nft"
+                        )
+                        .unwrap()
+                    ),
                     SubMsg::new(BankMsg::Send {
                         to_address: "creator".to_string(),
                         amount: coins(58, "luna"),
@@ -1868,7 +1863,7 @@ pub mod tests {
                     2,
                     AssetInfo::Cw721Coin(Cw721Coin {
                         address: "nft".to_string(),
-                        token_id: "58".to_string(),
+                        token_id: "59".to_string(),
                     }),
                 )],
             )
@@ -3160,7 +3155,7 @@ pub mod tests {
     pub mod counter_trade_tests {
         use super::*;
         use crate::query::{AllTradesResponse, TradeResponse};
-        use cosmwasm_std::{coin, from_binary, Api, SubMsg};
+        use cosmwasm_std::{coin, from_json, Api, SubMsg};
         use p2p_trading_export::msg::{
             AdditionalTradeInfoResponse, QueryFilters, TradeInfoResponse,
         };
@@ -3487,32 +3482,6 @@ pub mod tests {
                 "counterer",
                 0,
                 0,
-                AssetInfo::Cw721Coin(Cw721Coin {
-                    address: "nft-2".to_string(),
-                    token_id: "58".to_string(),
-                }),
-                &[],
-            )
-            .unwrap();
-
-            add_asset_to_counter_trade_helper(
-                deps.as_mut(),
-                "counterer",
-                0,
-                0,
-                AssetInfo::Cw721Coin(Cw721Coin {
-                    address: "nft".to_string(),
-                    token_id: "58".to_string(),
-                }),
-                &[],
-            )
-            .unwrap();
-
-            add_asset_to_counter_trade_helper(
-                deps.as_mut(),
-                "counterer",
-                0,
-                0,
                 AssetInfo::Coin(coin(100, "luna")),
                 &coins(100, "luna"),
             )
@@ -3526,13 +3495,6 @@ pub mod tests {
                 vec![
                     (
                         0,
-                        AssetInfo::Cw721Coin(Cw721Coin {
-                            address: "nft".to_string(),
-                            token_id: "58".to_string(),
-                        }),
-                    ),
-                    (
-                        2,
                         AssetInfo::Cw721Coin(Cw721Coin {
                             address: "nft".to_string(),
                             token_id: "58".to_string(),
@@ -3557,16 +3519,16 @@ pub mod tests {
                         )
                         .unwrap()
                     ),
-                    // SubMsg::new(
-                    //     into_cosmos_msg(
-                    //         Cw20ExecuteMsg::Transfer {
-                    //             recipient: "counterer".to_string(),
-                    //             amount: Uint128::from(58u64)
-                    //         },
-                    //         "token"
-                    //     )
-                    //     .unwrap()
-                    // ),
+                    SubMsg::new(
+                        into_cosmos_msg(
+                            Cw721ExecuteMsg::TransferNft {
+                                recipient: "counterer".to_string(),
+                                token_id: "59".to_string()
+                            },
+                            "nft"
+                        )
+                        .unwrap()
+                    ),
                     SubMsg::new(BankMsg::Send {
                         to_address: "counterer".to_string(),
                         amount: coins(58, "luna"),
@@ -4113,7 +4075,7 @@ pub mod tests {
 
             // When no counter_trades
             let env = mock_env();
-            let res: AllTradesResponse = from_binary(
+            let res: AllTradesResponse = from_json(
                 &query(
                     deps.as_ref(),
                     env,
@@ -4155,7 +4117,7 @@ pub mod tests {
             suggest_counter_trade_helper(deps.as_mut(), "counterer", 2).unwrap();
 
             let env = mock_env();
-            let res: AllTradesResponse = from_binary(
+            let res: AllTradesResponse = from_json(
                 &query(
                     deps.as_ref(),
                     env,

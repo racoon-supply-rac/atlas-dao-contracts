@@ -1,27 +1,20 @@
 
-use cosmwasm_std::{StdResult, to_json_binary};
 #[cfg(not(feature = "library"))]
-use cosmwasm_std::{entry_point, Binary, Deps, DepsMut, Env, MessageInfo, Response};
+use cosmwasm_std::{entry_point, Binary, Deps, DepsMut, Env, MessageInfo, Response,to_json_binary, StdResult};
+
 
 use utils::state::OwnerStruct;
 
 use nft_loans_export::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use nft_loans_export::state::ContractInfo;
 
-use crate::admin::{set_fee_distributor, set_fee_rate, set_owner};
-use crate::admin::claim_ownership;
+use crate::admin::{set_fee_distributor, set_fee_rate, set_owner,claim_ownership};
 use crate::error::ContractError;
-use crate::execute::accept_loan;
-use crate::execute::accept_offer;
-use crate::execute::cancel_offer;
-use crate::execute::deposit_collaterals;
-use crate::execute::make_offer;
-use crate::execute::modify_collaterals;
-use crate::execute::refuse_offer;
-use crate::execute::repay_borrowed_funds;
-use crate::execute::withdraw_collateral;
-use crate::execute::withdraw_defaulted_loan;
-use crate::execute::withdraw_refused_offer;
+use crate::execute::{
+    accept_loan, accept_offer, cancel_offer, deposit_collaterals, make_offer, modify_collaterals,
+    refuse_offer, repay_borrowed_funds, withdraw_collateral, withdraw_defaulted_loan,
+    withdraw_refused_offer,
+};
 
 use crate::query::{
     query_all_collaterals, query_borrower_info, query_collateral_info, query_collaterals,
@@ -36,15 +29,15 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    // Verify the contract name and the sent fee rates
+    // verify the contract name and the sent fee rates
     msg.validate()?;
     // store token info
     let data = ContractInfo {
         name: msg.name,
         owner: OwnerStruct::new(
-            deps
-                .api
-                .addr_validate(&msg.owner.unwrap_or_else(|| info.sender.to_string()))?),
+            deps.api
+                .addr_validate(&msg.owner.unwrap_or_else(|| info.sender.to_string()))?,
+        ),
         fee_distributor: deps.api.addr_validate(&msg.fee_distributor)?,
         fee_rate: msg.fee_rate,
         global_offer_index: 0,
@@ -56,19 +49,24 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> Result<Response, ContractError> {
+pub fn execute(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    msg: ExecuteMsg,
+) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::DepositCollaterals {
             tokens,
             terms,
             comment,
-            loan_preview
+            loan_preview,
         } => deposit_collaterals(deps, env, info, tokens, terms, comment, loan_preview),
         ExecuteMsg::ModifyCollaterals {
             loan_id,
             terms,
             comment,
-            loan_preview
+            loan_preview,
         } => modify_collaterals(deps, env, info, loan_id, terms, comment, loan_preview),
         ExecuteMsg::WithdrawCollaterals { loan_id } => {
             withdraw_collateral(deps, env, info, loan_id)
@@ -111,7 +109,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> R
 
         // Internal Contract Logic
         ExecuteMsg::SetOwner { owner } => set_owner(deps, env, info, owner),
-        ExecuteMsg::ClaimOwnership { } => claim_ownership(deps, env, info),
+        ExecuteMsg::ClaimOwnership {} => claim_ownership(deps, env, info),
 
         ExecuteMsg::SetFeeDistributor { fee_depositor } => {
             set_fee_distributor(deps, env, info, fee_depositor)
@@ -127,7 +125,7 @@ pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, 
     Ok(Response::default())
 }
 
-
+  
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
