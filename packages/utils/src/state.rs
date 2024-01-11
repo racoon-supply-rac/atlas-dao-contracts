@@ -1,14 +1,14 @@
-use cosmwasm_std::MessageInfo;
-use cosmwasm_std::StdError;
-use cosmwasm_std::Coin;
-use cosmwasm_std::{Addr, Api, StdResult, Uint128};
 use cosmwasm_schema::cw_serde;
+use cosmwasm_std::{Coin, Uint128, coin, StdResult, to_json_binary, WasmMsg};
+use serde::Serialize;
+use sg_std::CosmosMsg;
 
+
+// ASSETS
 #[cw_serde]
-pub struct Cw1155Coin {
+pub struct Sg721Token {
     pub address: String,
     pub token_id: String,
-    pub value: Uint128,
 }
 
 #[cw_serde]
@@ -18,51 +18,56 @@ pub struct Cw721Coin {
 }
 
 #[cw_serde]
-pub struct Cw20Coin {
-    pub address: String,
-    pub amount: Uint128,
-}
-
-#[cw_serde]
-pub enum AssetInfo {
-    Coin(Coin),
-    Cw20Coin(Cw20Coin),
+pub enum AssetInfo<> {
     Cw721Coin(Cw721Coin),
-    Cw1155Coin(Cw1155Coin),
+    Sg721Token(Sg721Token),
+    Coin(Coin),
 }
 
-pub fn maybe_addr(api: &dyn Api, human: Option<String>) -> StdResult<Option<Addr>> {
-    human.map(|x| api.addr_validate(&x)).transpose()
+impl AssetInfo {
+    pub fn coin(amount: u128, denom: &str) -> Self {
+        AssetInfo::Coin(coin(amount, denom))
+    }
+
+    pub fn coin_raw(amount: Uint128, denom: &str) -> Self {
+        AssetInfo::Coin(Coin {
+            denom: denom.to_string(),
+            amount,
+        })
+    }
+
+    pub fn cw721(address: &str, token_id: &str) -> Self {
+        AssetInfo::Cw721Coin(Cw721Coin {
+            address: address.to_string(),
+            token_id: token_id.to_string(),
+        })
+    }
+    pub fn sg721(address: &str, token_id: &str) -> Self {
+        AssetInfo::Sg721Token(Sg721Token {
+            address: address.to_string(),
+            token_id: token_id.to_string(),
+        })
+    }
 }
 
-#[cw_serde]
-pub struct OwnerStruct{
-    pub owner: Addr,
-    pub new_owner: Option<Addr>,
+pub fn is_valid_name(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    if bytes.len() < 3 || bytes.len() > 50 {
+        return false;
+    }
+    true
 }
 
-impl OwnerStruct{
-
-    pub fn new(owner: Addr) -> Self{
-        OwnerStruct { owner, new_owner: None }
-    }
-
-    pub fn propose_new_owner(mut self, new_owner: Addr) -> Self{
-        self.new_owner = Some(new_owner);
-        self
-    }
-
-    pub fn validate_new_owner(mut self, info: MessageInfo) -> StdResult<Self>{
-        if let Some(new_owner) = self.new_owner{
-            if info.sender == new_owner{
-                self.owner = info.sender;
-                self.new_owner = None;
-                Ok(self)
-            }else{
-                Err(StdError::generic_err("Unauthorized"))
-            }
-        }else{
-            Err(StdError::generic_err("Unauthorized"))
-        }
-    }
+pub fn into_cosmos_msg<M: Serialize, T: Into<String>>(
+    message: M,
+    contract_addr: T,
+    funds: Option<Vec<Coin>>,
+) -> StdResult<CosmosMsg> {
+    let msg = to_json_binary(&message)?;
+    let execute = WasmMsg::Execute {
+        contract_addr: contract_addr.into(),
+        msg,
+        funds: funds.unwrap_or_default(),
+    };
+    Ok(execute.into())
 }

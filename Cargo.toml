@@ -1,5 +1,10 @@
 [workspace]
-members = ["packages/*","contracts/*"]
+members = [ 
+    "packages/*",
+    "contracts/*",
+    "test-suite/",
+]
+resolver = "2"
 
 [profile.release]
 rpath = false

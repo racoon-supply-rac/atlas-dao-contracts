@@ -1,14 +1,69 @@
-use cosmwasm_std::StdError;
-use raffles_export::state::{AssetInfo, RaffleState};
 use thiserror::Error;
+
+use cosmwasm_std::{StdError, Timestamp, Coin};
+use utils::state::AssetInfo;
+
+use crate::state::RaffleState;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
 
-    #[error("Unauthorized")]
-    Unauthorized {},
+    #[error("Unauthorized.")]
+    Unauthorized,
+
+    #[error("Proxy address is not valid")]
+    InvalidProxyAddress,
+
+    #[error("Merkle is immutable.")]
+    MerkleImmutable,
+
+    #[error("Register the Merkle root before requesting randomness")]
+    MerkleRootAbsent,
+
+    #[error("Invalid input")]
+    InvalidInput {},
+
+    #[error("Already claimed")]
+    Claimed {},
+
+    #[error("Wrong length")]
+    WrongLength {},
+
+    #[error("Verification failed")]
+    VerificationFailed {},
+
+    #[error("The sender is not randomly eligible for the randdrop")]
+    NotRandomlyEligible {},
+
+    #[error("The claiming phase did not start. The random beacon is yet to be fetched")]
+    RandomnessUnavailable {},
+
+    #[error("Cannot migrate from different contract type: {previous_contract}")]
+    CannotMigrate { previous_contract: String },
+
+    // callback should only be allowed to be called by the proxy contract
+    // otherwise anyone can cut the randomness workflow and cheat the randomness
+    #[error("Unauthorized Receive execution")]
+    UnauthorizedReceive,
+
+    #[error("Requesting randomness {random_beacon_after} in the past compared to  {block_time}. This is not safe, make sure the timestamp is in the future and in nanoseconds")]
+    RandomAfterIsInThePast {
+        block_time: Timestamp,
+        random_beacon_after: Timestamp,
+    },
+
+    #[error(
+        "Requesting randomness is too much in the future, max allowed is {max_allowed_beacon_time}"
+    )]
+    RandomAfterIsTooMuchInTheFuture { max_allowed_beacon_time: Timestamp },
+
+    #[error("Received invalid randomness")]
+    InvalidRandomness,
+
+    #[error("Immutable Randomness")]
+    ImmutableRandomness,
 
     #[error("Unreachable code, something weird happened")]
     Unreachable {},
@@ -37,10 +92,10 @@ pub enum ContractError {
     #[error("You can't buy tickets on this raffle anymore")]
     CantBuyTickets {},
 
-    #[error("A raffle can only be done with CW721 or CW1155 assets")]
+    #[error("A raffle can only be done with CW721 or SG721 assets")]
     WrongAssetType {},
 
-    #[error("Tickets to a raffle can only be bought with native assets or CW20 coins")]
+    #[error("Tickets to a raffle can only be bought with native assets.")]
     WrongFundsType {},
 
     #[error("The sent asset doesn't match the asset in the message sent along with it")]
@@ -50,7 +105,7 @@ pub enum ContractError {
     NoAssets {},
 
     #[error("The sent assets ({assets_received:?}) don't match the required assets ({assets_wanted:?}) for this raffle")]
-    PaiementNotSufficient {
+    PaymentNotSufficient {
         assets_wanted: AssetInfo,
         assets_received: AssetInfo,
     },
@@ -95,4 +150,5 @@ pub enum ContractError {
 
     #[error("This parameter name was not found, you can't change it !")]
     ParameterNotFound {},
+
 }
